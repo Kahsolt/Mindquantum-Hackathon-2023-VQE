@@ -1,13 +1,15 @@
-# HUAWEI_hackathon_2023
+# HUAWEI hackathon 2023
 
-    华为 2023 MindSpore 量子计算黑客松全国大赛
+    华为 MindSpore 2023 量子计算黑客松全国大赛
 
 ----
 
-比赛页面： [量子信息技术与应用创新大赛 —— 2023 MindSpore 量子计算黑客松全国大赛](https://competition.huaweicloud.com/information/1000041884/introduction)
+比赛页面： [MindSpore-2023-量子计算黑客松全国大赛](https://competition.huaweicloud.com/information/1000041884/introduction)
 
 
 ### install
+
+⚠ The dependent package `pyscf` does NOT support native Windows, so you must run code under Linux :(
 
 - create venv
   - `conda create -n mq python==3.9`
@@ -18,6 +20,8 @@
   - fix PIL version compatible error: `pip install Pillow==9.5.0`
   - test installation `python -c "import mindspore;mindspore.run_check()"`
 - `pip install mindquantum`
+- `pip install -r requirements.txt`
+
 
 ### references
 
@@ -29,6 +33,10 @@
 - QuPack:
   - tutorial: [https://hiq.huaweicloud.com/document/QAOA](https://hiq.huaweicloud.com/document/QAOA)
   - doc: [https://hiq.huaweicloud.com/document/qupack-0.1.1/index.html](https://hiq.huaweicloud.com/document/qupack-0.1.1/index.html)
+
+- pyChemiQ
+  - repo: [https://github.com/OriginQ/pyChemiQ](https://github.com/OriginQ/pyChemiQ)
+  - doc: [https://pychemiq-tutorial.readthedocs.io/en/latest/index.html](https://pychemiq-tutorial.readthedocs.io/en/latest/index.html)
 
 ----
 
