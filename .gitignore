@@ -3,7 +3,8 @@
 __pycache__/
 
 # thesis
-**/ref/*.pdf
+thesis/*
+!thesis/.cmd
 
 # python packages for method stub lookup :)
 lib/*
@@ -11,8 +12,6 @@ lib/*
 # log/out
 **/log*
 
-# contain credentials
+# submit stuff contain credentials
 pack.cmd
-
-# submit stuff
 *.zip

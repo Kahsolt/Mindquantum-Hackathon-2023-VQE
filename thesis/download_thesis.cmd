@@ -16,4 +16,7 @@ REM Simulated Quantum Computation of Molecular Energies
 wget -nc https://arxiv.org/ftp/quant-ph/papers/0604/0604193.pdf
 
 REM A Quantum-Quantum Metropolis Algorithm
-wegt -nc https://arxiv.org/pdf/1011.1468.pdf
+wget -nc https://arxiv.org/pdf/1011.1468.pdf
+
+REM Qubit coupled-cluster method: A systematic approach to quantum chemistry on a quantum computer
+wget -nc https://arxiv.org/pdf/1809.03827.pdf
