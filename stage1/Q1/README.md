@@ -117,6 +117,47 @@ and the ansatz ψ must be enough expressive to produce adequate different states
 Note that this algorithm is recursive, in order to get E(λk), you MUST solve all E(λj) where j < k.
 ```
 
+⚪ Notes of scipy.optimze
+
+```
+[optimize.minimize() methods]
+⚪ not need derivatives
+- Nelder-Mead simplex: Nelder-Mead 单纯形法
+  - 把输入向量 x0 视为 N 维度空间里的一个单纯型 (凸包), 反射/收缩这个凸包各顶点来寻找最优解；不保证最优
+  - ref: https://blog.csdn.net/Accelerating/article/details/121508984
+- Powell: 
+  - 双向网格搜索；在输入向量 x0 的每个维度，双向等距打点搜索
+  - ref: https://en.wikipedia.org/wiki/Powell%27s_method
+- COBYLA: Constrained Optimization BY Linear Approximation algorithm
+  - 解线性规划问题去近似解，然后缩减步幅到收敛
+  - ref: https://handwiki.org/wiki/COBYLA
+
+⚪ need derivatives (quasi-Newton methods)
+- CG / conjugate gradient
+  - 用于解线性方程 Ax=b
+  - ref: https://en.wikipedia.org/wiki/Conjugate_gradient_method 
+- Newton-CG
+- TNC: truncated Newton
+  - aka. Hessian-free optimization, 假设输入向量 x 各维度是独立无关的
+  - ref: https://en.wikipedia.org/wiki/Truncated_Newton_method
+- BFGS / Broyden–Fletcher–Goldfarb–Shanno algorithm
+  - 类似梯度下降，但越来越逼近 Hessian 矩阵
+  - ref: https://en.wikipedia.org/wiki/Broyden%E2%80%93Fletcher%E2%80%93Goldfarb%E2%80%93Shanno_algorithm
+- L-BFGS-B
+  - limited-momery box-bounded BFGS
+  - ref: https://en.wikipedia.org/wiki/Limited-memory_BFGS
+- SLSQP: Sequential Least Squares Programming
+  - 对于无约束情况将退化到朴素 Newton 法
+  - ref: https://en.wikipedia.org/wiki/Sequential_quadratic_programming
+- dogleg
+  - 需要一个 trust region
+  - ref: https://en.wikipedia.org/wiki/Powell%27s_dog_leg_method
+- trust-constr: trust-region algorithm for constrained optimization
+- trust-ncg： trust-region algorithm with Newton conjugate gradient
+- trust-exact: trust-region algorithm using a nearly exact trust-region
+- trust-krylov: trust-region algorithm with exact region that only requires matrix vector products with the hessian matrix
+```
+
 ⚪ Notes of mindquantum framework
 
 ```
