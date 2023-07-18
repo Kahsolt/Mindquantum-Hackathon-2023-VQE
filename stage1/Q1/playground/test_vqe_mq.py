@@ -33,16 +33,19 @@ except: print('[warn] missing qupack')
 
 from mol_data import GEOMETRY, get_mol_geo
 
-# vqe:
+Optima = Tuple[float, float]
+
+# VQE with UCCSD ansatz in mindquantum & qupack 
 #   https://www.mindspore.cn/mindquantum/docs/zh-CN/r0.8/vqe_for_quantum_chemistry.html 
 #   https://gitee.com/mindspore/mindquantum/blob/r0.8/tutorials/source/7.vqe_for_quantum_chemistry.py
-# measure get_expectation_with_grad:
+# measure get_expectation_with_grad():
 #   https://www.mindspore.cn/mindquantum/docs/zh-CN/r0.8/mindquantum.simulator.html?highlight=get_expectation#mindquantum.simulator.Simulator.get_expectation_with_grad
 
+MQ_OPT = 'Adagrad'
+MQ_LR = 4e-2
 
-LOG_FILE = Path(__file__).absolute().with_suffix('.json')
 
-def write_json(energy:float, ts:float):
+def write_json(args, energy:float, ts:float):
   exp_name = f'{args.molecule}_L={args.library}_O={args.optim}_I={args.init}_sugar={args.sugar}'
 
   if not args.log_fp.exists():
@@ -50,7 +53,7 @@ def write_json(energy:float, ts:float):
       'energy': {},
       'ts': {},
     }
-    with open(args.perf_fp, 'w', encoding='utf-8') as fh:
+    with open(args.log_fp, 'w', encoding='utf-8') as fh:
       json.dump(init_data, fh, indent=2, ensure_ascii=False)
 
   with open(args.log_fp, 'r', encoding='utf-8') as fh:
@@ -91,16 +94,17 @@ def get_mol() -> MolecularData:
   return mol
 
 
-def optim_scipy(func:Callable, init_amp:np.ndarray, grad_ops:Callable):
+def optim_scipy(func:Callable, init_amp:np.ndarray, grad_ops:Callable) -> Optima:
   s = time()
-  res = minimize(func, init_amp, args=(grad_ops,), method='bfgs', jac=True, tol=1e-6)
+  res = minimize(func, init_amp, args=(grad_ops,), method='BFGS', jac=True, tol=1e-6)
   t = time()
   print(f'energy: {res.fun}, steps: {res.nfev} ({t - s:.5}s)')
+  return res.fun, t - s
 
 
-def optim_mindquantum(mol_pqc:MQAnsatzOnlyLayer, lr:float=1e-3, eps:float=1e-6):
+def optim_mindquantum(mol_pqc:MQAnsatzOnlyLayer, lr:float=MQ_LR, eps:float=1e-6) -> Optima:
   s = time()
-  optimizer = ms.nn.Adagrad(mol_pqc.trainable_params(), learning_rate=lr)
+  optimizer = getattr(ms.nn, MQ_OPT)(mol_pqc.trainable_params(), learning_rate=lr)
   train_pqc = ms.nn.TrainOneStepCell(mol_pqc, optimizer)
 
   initial_energy = mol_pqc().asnumpy()
@@ -119,28 +123,25 @@ def optim_mindquantum(mol_pqc:MQAnsatzOnlyLayer, lr:float=1e-3, eps:float=1e-6):
   t = time()
 
   print(f'energy: {energy_i.item()}, steps: {iter_idx - 1} ({t - s:.5}s)')
+  return energy_i.item(), t - s
 
 
-def optim_go(args, func:Callable, grad_ops:Callable, n_params:int, init_amp:Circuit=None):
-  if args.init == 'zeros':
-    init_amp = np.zeros(n_params) + 1e-6
-  elif args.init == 'uniform':
-    init_amp = np.random.uniform(size=[n_params])
-  elif args.init == 'normal':
-    init_amp = np.random.normal(size=[n_params])
-  elif args.init == 'ccsd':
-    assert init_amp is not None
+def optim_go(args, func:Callable, grad_ops:Callable, n_params:int, init_amp:Circuit=None) -> Optima:
+  if   args.init == 'zeros':   init_amp = np.zeros              (n_params) + 1e-6
+  elif args.init == 'uniform': init_amp = np.random.uniform(size=n_params) * 1e-6
+  elif args.init == 'normal':  init_amp = np.random.normal (size=n_params) * 1e-6
+  elif args.init == 'ccsd':    assert init_amp is not None
 
   if args.optim == 'sp':
-    optim_scipy(func, init_amp, grad_ops)
+    return optim_scipy(func, init_amp, grad_ops)
   elif args.optim == 'mq':
     mol_pqc = MQAnsatzOnlyLayer(grad_ops, args.init if args.init != 'ccsd' else 'zeros')
     if args.init == 'ccsd':   # override 'zeros'
       mol_pqc.weight = Parameter(ms.Tensor(init_amp, mol_pqc.weight.dtype))
-    optim_mindquantum(mol_pqc)
+    return optim_mindquantum(mol_pqc)
 
 
-def run_mindquantum(args, mol:MolecularData):
+def run_mindquantum(args, mol:MolecularData) -> Optima:
   if args.sugar >= 2:
     ansatz_circuit, init_amp, ansatz_param_names, ham_qo, n_qubits, n_electrons = generate_uccsd(mol, threshold=-1)
     ham = Hamiltonian(ham_qo.real)
@@ -176,10 +177,10 @@ def run_mindquantum(args, mol:MolecularData):
     init_amp_ccsd = uccsd_singlet_get_packed_amplitudes(mol.ccsd_single_amps, mol.ccsd_double_amps, mol.n_qubits, mol.n_electrons)
     init_amp = np.asarray([init_amp_ccsd[i] for i in ansatz_circuit.params_name])
   
-  optim_go(args, func, grad_ops, n_params=len(circ.params_name), init_amp=init_amp)
+  return optim_go(args, func, grad_ops, n_params=len(circ.params_name), init_amp=init_amp)
 
 
-def run_qupack(args, mol:MolecularData):
+def run_qupack(args, mol:MolecularData) -> Optima:
   ham_of = mol.get_molecular_hamiltonian()                         # 获得分子对应的哈密顿量
   inter_ops = InteractionOperator(*ham_of.n_body_tensors.values()) # 转化为相互作用算符
   ham_hiq = FermionOperator(inter_ops)                             # 转化为费米算符
@@ -198,7 +199,7 @@ def run_qupack(args, mol:MolecularData):
     f, g = grad_ops(amp)      # amp是线路参数值，f是期望值，g是参数梯度
     return f.real, g.real
 
-  optim_go(args, func, grad_ops, n_params=len(circ.params_name))
+  return optim_go(args, func, grad_ops, n_params=len(circ.params_name))
 
 
 def run_all(mol:MolecularData):
@@ -207,28 +208,47 @@ def run_all(mol:MolecularData):
     args.optim = o
     for i in ['zeros', 'normal', 'uniform', 'ccsd']:
       args.init = i
-      run_mindquantum(args, mol)
+      ene, ts = run_mindquantum(args, mol)
+      write_json(args, ene, ts)
 
   args.library = 'qp'
   args.optim = 'sp'
   for i in ['zeros', 'normal', 'uniform']:
     args.init = i
-    run_qupack(args, mol)
+    ene, ts = run_qupack(args, mol)
+    write_json(args, ene, ts)
+
+
+def run_all_all(mol:MolecularData):
+  global MQ_LR, MQ_OPT
+
+  for opt in ['Adagrad', 'Adam', 'SGD']:
+    MQ_OPT = opt
+    for lr in [1e-2, 4e-2, 6e-2, 1e-1]:
+      MQ_LR = lr
+
+      run_all(mol)
 
 
 if __name__ == '__main__':
+  LOG_FILE = Path(__file__).absolute().with_suffix('.json')
+
   parser = ArgumentParser()
-  parser.add_argument('-M', '--molecule', default='LiH',   choices=GEOMETRY.keys(), help='molecule name')
+  parser.add_argument('-M', '--molecule', default='LiH_1.5', choices=GEOMETRY.keys(), help='molecule name')
   parser.add_argument('-L', '--library',  default='qp',    choices=['qp', 'mq'], help='library qupack or mindquantum')
   parser.add_argument('-O', '--optim',    default='sp',    choices=['sp', 'mq'], help='optimzer scipy.optimize or mindquantum')
   parser.add_argument('-I', '--init',     default='zeros', choices=['zeros', 'normal', 'uniform', 'ccsd'], help='optimzer scipy.optimize or mindquantum')
   parser.add_argument('--sugar', default=0, type=int, help='prefer sugar API')
-  parser.add_argument('--run_all', action='store_true', help='run all exp')
+  parser.add_argument('--run_all', action='store_true', help='run all library-optim pair')
+  parser.add_argument('--run_all_all', action='store_true', help='run all library-optim-lr pair')
   parser.add_argument('--log_fp', default=LOG_FILE, type=Path, help='record perf result')
   args = parser.parse_args()
 
   mol = get_mol()
 
+  if args.run_all_all:
+    run_all_all(mol)
+    exit(0)
   if args.run_all:
     run_all(mol)
     exit(0)

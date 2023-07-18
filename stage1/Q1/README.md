@@ -119,6 +119,8 @@ Note that this algorithm is recursive, in order to get E(λk), you MUST solve al
 
 ⚪ Notes of scipy.optimze
 
+=> doc: [https://docs.scipy.org/doc/scipy/tutorial/optimize.html](https://docs.scipy.org/doc/scipy/tutorial/optimize.html)
+
 ```
 [optimize.minimize() methods]
 ⚪ not need derivatives
@@ -153,7 +155,7 @@ Note that this algorithm is recursive, in order to get E(λk), you MUST solve al
   - 需要一个 trust region
   - ref: https://en.wikipedia.org/wiki/Powell%27s_dog_leg_method
 - trust-constr: trust-region algorithm for constrained optimization
-- trust-ncg： trust-region algorithm with Newton conjugate gradient
+- trust-ncg： trust-region algorithm with Newton-CG
 - trust-exact: trust-region algorithm using a nearly exact trust-region
 - trust-krylov: trust-region algorithm with exact region that only requires matrix vector products with the hessian matrix
 ```
@@ -174,15 +176,20 @@ Ansatz: 进行态演化，制备一个末态 |psi>
 Loss: 通常是最小化一个可观测量期望值 <psi|H|psi>
   - Hamiltonian 量就是个矩阵 (密度矩阵?)
   - 也可以认为就是一个观测投影方式 (?)
+```
 
+⚪ Notes of Hamiltonian
+
+```
 [哈密顿量到底tm是个啥]
   - https://zhuanlan.zhihu.com/p/150292241
 
 化学分子结构处理之后可以得到一个哈密顿量 H
   - dim(H) = 2^n_qubits ; n_qubits = 2 * n_electrons (?)
   - H is (a real) diag
-  - SCF/HF energy == min(diag(H)) = λmin
   - a lot of pair-wise duplicated values exists in diag(H)
+  - SCF/HF energy == min(diag(H)) = min(trace)
+  - FCI energy == λmin, use eig(H) decomposition
 ```
 
 

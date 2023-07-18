@@ -27,6 +27,7 @@
 [Gradient-Descent] n_calls: 2,    result: -7.863357621535115
 
 ### LiH - UCCD
+
 [Nelder-Mead]      n_calls: 37,   result: -7.863357621535115
 [Powell]           n_calls: 1178, result: -7.881874901528884
 [COBYLA]           n_calls: 37,   result: -7.863357621535115

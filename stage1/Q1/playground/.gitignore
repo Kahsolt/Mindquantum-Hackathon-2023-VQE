@@ -1,2 +1,9 @@
+# test_vqe_chq.py
 *.dat
 *.json
+
+# test_vqe_mq.py
+test_vqe_mq.json
+
+# benchmark.py
+benchmark_results/

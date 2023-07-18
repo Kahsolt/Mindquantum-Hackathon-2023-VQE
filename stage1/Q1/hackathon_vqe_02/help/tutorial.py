@@ -73,7 +73,10 @@ def run_gs(mol:MolecularData, ham_op:QubitOperator):
         method="bfgs", 
         jac=True,
         tol=1e-6,
-        options={'maxiter': 100000, 'disp': True},
+        options={
+            'maxiter': 100000,
+            'disp': True,
+        },
     )
 
     # Construct parameter resolver of the ground state circuit
@@ -141,7 +144,10 @@ def run_es(mol:MolecularData, ham_op:QubitOperator, gs_sim:Simulator):
         method="bfgs",
         jac=True,
         tol=1e-6,
-        options={'maxiter': 100000, 'disp': True},
+        options={
+            'maxiter': 100000,
+            'disp': True,
+        },
     )
 
     # Construct parameter resolver of the excited state circuit

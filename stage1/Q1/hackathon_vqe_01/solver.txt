@@ -1,0 +1,24 @@
+[objective = pyscf]
+
+⚪ precision
+
+- optim: BFGS = trust-constr > CG > SLSQP > L-BFGS-B = Powell > Nelder-Mead > COBYLA > TNC
+- init: orig = randn > eq-3d = randu = linear > eq-2d
+
+⚪ timecost
+
+- optim: SLSQP < L-BFGS-B < COBYLA < trust-constr < BFGS < Nelder-Mead < Powell < TNC < CG
+- init (roughly): eq-2d < linear < orig < eq-3d < randn < randu
+
+
+[objective = uccsd]
+
+⚪ precision
+
+- optim: trust-constr > Powell > BFGS > CG > COBYLA > Nelder-Mead > SLSQP 
+- init: linear > orig = randn = randu > eq-3d > eq-2d
+
+⚪ timecost
+
+- optim: SLSQP < COBYLA < trust-constr < CG < BFGS < Powell < Nelder-Mead
+- init (roughly): eq-2d < linear < orig < eq-3d < randn < randu

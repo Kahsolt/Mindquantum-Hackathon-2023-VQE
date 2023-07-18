@@ -16,10 +16,10 @@ from mindquantum.simulator import Simulator
 
 # this is the hamiltionian that holds the state of a physical quantum object
 qo = QubitOperator('Z0 Y1', 0.763)    # a 2-qubits system
-mat = qo.matrix().todense()
-print('qubit_op mat:')
-print(mat)
 ham = Hamiltonian(qo)   # do not know why need this wrapper though...
+H = ham.hamiltonian.matrix().todense()
+print('hamiltonian mat:')
+print(H)
 
 # this is an encoder to prepare U|init> -> |phi>
 encoder_circ = Circuit().x(0).x(1)  # |00> -> |11>
@@ -34,7 +34,7 @@ print('|psi>:')
 print(qs)
 
 # this is a quantum computer
-sim = Simulator('mqvector', qo.count_qubits())
+sim = Simulator('mqvector', ham.n_qubits)
 qs = sim.get_qs()    # here init state |00>
 print('|init>:')
 print(qs)
@@ -54,10 +54,10 @@ print('E:')
 print(E)
 
 # manally calc E = <psi|H|psi>
-breakpoint()
-E_hat = qs @ mat @ qs
+E_hat = qs @ H @ qs
 print('E_hat:')
 print(E_hat)
+breakpoint()
 
 # but what does this do? 
 #sim.apply_hamiltonian(ham)

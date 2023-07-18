@@ -1,52 +1,49 @@
+from time import time ; global_T = time()
 import os ; os.environ['OMP_NUM_THREADS'] = '4'
-import json
-from time import time
 from argparse import ArgumentParser
 from typing import List, Tuple
 
 import numpy as np
 from numpy import ndarray
-import matplotlib.pyplot as plt
 from scipy.optimize import minimize
-from mindquantum.core.operators import FermionOperator, InteractionOperator, normal_ordered
+from openfermion.chem import MolecularData
+from mindquantum.core.operators import InteractionOperator, FermionOperator, normal_ordered
 from mindquantum.core.circuit import Circuit
 from mindquantum.algorithm.nisq.chem import uccsd_singlet_generator
 from qupack.vqe import ESConservation, ESConserveHam, ExpmPQRSFermionGate
-from openfermion.chem import MolecularData
-# monkey-patching
-ESConservation._check_qubits_max = lambda *args, **kwargs: None
-
-# this solver optimizes either of the 
-#   - pyscf-computed real FCI
-#   - VQE-approximated E0 energy prediction (QuPack)
+ESConservation._check_qubits_max = lambda *args, **kwargs: None   # monkey-patching avoid FileNotFoundError
 
 OPTIM_METH = [
-  # 'Nelder-Mead',
-  # 'Powell',
-  'CG',
-  # 'Newton-CG',
   'BFGS',
-  # 'L-BFGS-B',
-  # 'TNC',
+  'L-BFGS-B',
+  'SLSQP',
+  'CG',
+  'TNC',
   'COBYLA',
-  # 'SLSQP',
-  # 'dogleg',
+  'Powell',
+  'Nelder-Mead',
   'trust-constr',
-  # 'trust-ncg',
-  # 'trust-exact',
-  # 'trust-krylov',
+  # need jac, can NOT run
+  #'Newton-CG',
+  #'dogleg',
+  #'trust-ncg',
+  #'trust-exact',
+  #'trust-krylov',
 ]
 INIT_METH = [
   'randu', 
-  # 'linear', 
-  # 'randn', 
-  # 'orig',
+  'randn', 
+  'linear', 
+  'eq-2d',
+  'eq-3d',
+  'orig',
 ]
 
 if 'typing':
   DTYPE = np.float64
-  Name = List[str]
-  Geo = ndarray     # [N*3], flattened
+
+  Name  = List[str]
+  Geo   = ndarray     # [N*3], flattened
 
 if 'globals':
   steps: int = 0
@@ -57,7 +54,6 @@ if 'globals':
 
   # contest time limit: 1h
   TIMEOUT_LIMIT = int(3600 * 0.95)
-  global_T = time()
 
 
 def timer(fn):
@@ -74,23 +70,33 @@ def read_csv(fp:str) -> Tuple[Name, Geo]:
   with open(fp, 'r', encoding='utf-8') as fh:
     data = fh.readlines()
 
-  mol_name, mol_geo = [], []
+  name, geo = [], []
   for line in data:
-    name, *geo = line.split(',')
-    mol_name.append(name)
-    mol_geo.extend([DTYPE(e) for e in geo])
-  return mol_name, np.ascontiguousarray(mol_geo, dtype=DTYPE)
+    n, *v3 = line.split(',')
+    pt = [DTYPE(e) for e in v3]
+    name.append(n)
+    geo.extend(pt)
+  return name, np.ascontiguousarray(geo, dtype=DTYPE)
 
 def write_csv(fp:str, name:Name, geo:Geo):
-  items = [[n] + geo[i].tolist() for i, n in enumerate(name)]
-
   with open(fp, 'w', encoding='utf-8') as fh:
-    for item in items:
-      fh.write(', '.join([str(e) for e in item]))
+    for i, n in enumerate(name):
+      fh.write(f'{n}, ')
+      fh.write(', '.join([str(e) for e in geo[i].tolist()]))
       fh.write('\n')
 
 
-# ↓↓↓ openfermionpyscf/_run_pyscf.py: run_pyscf() ↓↓↓
+def get_fci_from_csv(args):
+  # due to *.csv read/write precision error for judger of this contest
+  # we do NOT use direct output in the program as the final FCI value
+  # we parse the csv file and reconstruct to get it :(
+
+  name, geo = read_csv(args.output_mol)
+  mol = get_mol(name, geo)
+  print('final fci:', mol.fci_energy)
+
+
+# ↓↓↓ openfermionpyscf/_run_pyscf.py ↓↓↓
 
 '''
   - calc hf_energy, prepare integrals 
@@ -98,7 +104,7 @@ def write_csv(fp:str, name:Name, geo:Geo):
 '''
 
 from pyscf import fci
-from pyscf.scf import hf ; hf.MUTE_CHKFILE = True
+from pyscf.scf import hf ; hf.MUTE_CHKFILE = True   # monkey-patching avoid tempfile IO
 from openfermionpyscf import PyscfMolecularData
 from openfermionpyscf._run_pyscf import prepare_pyscf_molecule, compute_scf, compute_integrals
 
@@ -143,18 +149,18 @@ def run_pyscf_hijack(molecule:MolecularData, run_fci:bool=False) -> PyscfMolecul
   pyscf_molecular_data.__dict__.update(molecule.__dict__)
   return pyscf_molecular_data
 
-# ↑↑↑ openfermionpyscf/_run_pyscf.py: run_pyscf() ↑↑↑
+# ↑↑↑ openfermionpyscf/_run_pyscf.py ↑↑↑
 
 
-# ↓↓↓ VQE stuff ↓↓↓
+# ↓↓↓ qupack.vqe ↓↓↓
 
-def get_mol(name:Name, geo:Geo, run_fci:bool=False) -> MolecularData:
+def get_mol(name:Name, geo:Geo, run_fci:bool=True) -> MolecularData:
   geometry = [[name[i], list(e)] for i, e in enumerate(geo.reshape(len(name), -1))]
   mol = MolecularData(geometry, 'sto3g', multiplicity=1)
   # NOTE: make integral calculation info for `mol.get_molecular_hamiltonian()`
-  return run_pyscf_hijack(mol, run_fci)
+  return run_pyscf_hijack(mol, run_fci=run_fci)
 
-def gen_ham(mol:MolecularData) -> ESConserveHam:
+def get_ham(mol:MolecularData) -> ESConserveHam:
   ham_of = mol.get_molecular_hamiltonian()
   inter_ops = InteractionOperator(*ham_of.n_body_tensors.values())
   ham_hiq = FermionOperator(inter_ops)  # len(ham_hiq) == 1861 for LiH; == 37 for H2
@@ -182,7 +188,7 @@ def run_uccsd(ham:ESConserveHam, circ:Circuit, sim:ESConservation) -> float:
   res = minimize(fun, tht, args=(grad_ops,), jac=True, method=args.optim)
   return res.fun
 
-# ↑↑↑ VQE stuff ↑↑↑
+# ↑↑↑ qupack.vqe ↑↑↑
 
 
 def optim_fn(geo:Geo, name:Name, objective:str) -> float:
@@ -193,7 +199,7 @@ def optim_fn(geo:Geo, name:Name, objective:str) -> float:
     res: float = mol.fci_energy
   elif objective == 'uccsd':
     mol = get_mol(name, geo)    # only need *.h5 file
-    ham = gen_ham(mol)
+    ham = get_ham(mol)
     if circ is None:
       circ = gen_uccsd(mol)
       sim = ESConservation(mol.n_qubits, mol.n_electrons)
@@ -210,26 +216,59 @@ def optim_fn(geo:Geo, name:Name, objective:str) -> float:
     track_ene.append(res)
     track_geo.append(geo.reshape(len(name), -1))
   
-  if time_elapse > TIMEOUT_LIMIT:
-    best_geo = geo.reshape(len(name), -1)
-    write_csv(args.output_mol, name, best_geo)
+  if not args.track and time_elapse > TIMEOUT_LIMIT:
+    best_x = geo.reshape(len(name), -1)
+    write_csv(args.output_mol, name, best_x)
     exit(0)
 
   return res
 
+def get_init_linear(npoints:int) -> ndarray:
+  geo = np.zeros([npoints, 3])
+  geo[:, -1] = np.linspace(0.0, 1.0, npoints)   # 等分点
+  return geo.flatten()
+
+def get_init_eq_kd(npoints:int, dim:int=2) -> ndarray:
+  assert 3 <= npoints <= 4 
+  assert dim in [2, 3]
+  geo = None
+
+  if dim == 2:
+    if npoints == 3:
+      geo = np.asarray([    # 等边三角形
+        [0, 0, 0],
+        [0, 0, 1],
+        [0, np.sqrt(3)/2, 0],
+      ])
+    elif npoints == 4:
+      geo = np.asarray([    # 正方形
+        [0, 0, 0],
+        [0, 0, 1],
+        [0, 1, 0],
+        [0, 1, 1],
+      ])
+  elif dim == 3:
+    if npoints == 4:
+      geo = np.asarray([    # 正四面体
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 1, 1],
+      ])
+
+  return geo.flatten() if geo is not None else None
+
 
 @timer
-def run(args, name:Name, geo:Geo) -> Tuple[Name, Geo]:
-  if args.init == 'randu':
-    geo = np.random.uniform(low=-1.0, high=1.0, size=len(geo)) * args.init_w
-  elif args.init == 'randn':
-    geo = np.random.normal(loc=0.0, scale=1.0, size=len(geo)) * args.init_w
-  elif args.init == 'linear':
-    n_mol = len(name)
-    x = np.linspace(0.0, args.init_w, n_mol)
-    geo = np.zeros([n_mol, 3])  # [N, D=3]
-    for i in range(n_mol): geo[i, -1] = x[i]
-    geo = geo.flatten()
+def run(args, name:Name, init_geo:Geo) -> Tuple[Name, Geo]:
+  geo = None
+  if   args.init == 'randu':  geo = np.random.uniform(low=-1.0, high =1.0, size=len(init_geo))
+  elif args.init == 'randn':  geo = np.random.normal (loc= 0.0, scale=1.0, size=len(init_geo))
+  elif args.init == 'linear': geo = get_init_linear(len(name))
+  elif args.init == 'eq-2d':  geo = get_init_eq_kd(len(name), dim=2)
+  elif args.init == 'eq-3d':  geo = get_init_eq_kd(len(name), dim=3)
+  elif args.init == 'orig':   geo = init_geo
+  if geo is None: return  # ignore if geo not applicable
   init_x = geo.tolist()
 
   s = time()
@@ -239,15 +278,20 @@ def run(args, name:Name, geo:Geo) -> Tuple[Name, Geo]:
     args=(name, args.objective), 
     method=args.optim, 
     tol=args.eps, 
-    options={'maxiter':args.maxiter, 'disp':args.track}
+    options={
+      'maxiter': args.maxiter, 
+      'disp': args.track,
+    },
   )
   t = time()
   best_x = res.x    # flattened
 
   if args.track:
-    mol = get_mol(name, best_x, run_fci=True)
-    fci = mol.fci_energy
-    print('final fci energe (theoretical):', fci)
+    import json
+    import matplotlib.pyplot as plt
+  
+    fci = get_mol(name, best_x, run_fci=True).fci_energy
+    print('final fci:', fci)
 
     track_geo_np: ndarray = np.stack(track_geo, axis=0)
     with open(os.path.join(args.log_dp, 'stats.json'), 'w', encoding='utf-8') as fh:
@@ -306,13 +350,14 @@ def run_all(args):
     track_geo = []
 
     # setup log_dp
-    expname = f'O={args.optim}_i={args.init}'
-    expname += f'_w={args.init_w}' if args.init != 'orig' else ''
+    expname = f'O={args.optim}_I={args.init}'
     args.log_dp = os.path.abspath(os.path.join(args.log_path, expname))
     if os.path.exists(args.log_dp): return True
     os.makedirs(args.log_dp, exist_ok=True)
     return False
 
+  from traceback import print_exc
+  
   for optim in OPTIM_METH:
     args.optim = optim
     for init in INIT_METH:
@@ -322,26 +367,35 @@ def run_all(args):
       if done: continue
 
       print(f'>> run optim={optim}, init={init}')
-      run(args, name, geo)
+      try: run(args, name, geo)
+      except: print_exc()
 
 
 @timer
 def run_compound(args):
   name, best_x = read_csv(args.input_mol)
 
-  configs = [
-    'COBYLA',         # this is fast
-    'trust-constr',   # this is precise
-  ]
-
-  for i, optim in enumerate(configs):
-    print(f'>> round {i}: optim use {optim}')
-    args.optim = optim
-    args.init = args.init if i == 0 else 'orig'
-
+  def go():
+    nonlocal name, best_x
     name, best_x = run(args, name, best_x)
     best_geo = best_x.reshape(len(name), -1)
     write_csv(args.output_mol, name, best_geo)
+
+  if args.no_comp: go()
+  else:
+    configs = [
+      'COBYLA',   # this is fast
+      'BFGS',     # this is precise
+    ]
+
+    maxiter = args.maxiter
+    for i, optim in enumerate(configs):
+      print(f'>> round {i}: optim use {optim}')
+      args.optim = optim
+      args.init = args.init if i == 0 else 'orig'
+      args.maxiter = maxiter // 2 if 1 == 0 else maxiter
+
+      go()
 
 
 if __name__ == '__main__':
@@ -351,14 +405,19 @@ if __name__ == '__main__':
   parser.add_argument('-x', '--output-mol', help='output molecular *.csv', default='h4_best.csv')
   parser.add_argument('-Z', '--objective',  help='optim target objective', default='uccsd', choices=['pyscf', 'uccsd'])
   parser.add_argument('-O', '--optim',      help='optim method',           default='BFGS', choices=OPTIM_METH)
-  parser.add_argument('--init',     help='init method',    default='randu', choices=INIT_METH)
-  parser.add_argument('--init_w',   help='init weight',    default=1,    type=float)
-  parser.add_argument('--eps',      help='tol eps',        default=1e-6, type=float)
-  parser.add_argument('--maxiter',  help='max optim iter', default=500,  type=int)
+  parser.add_argument('--init',     help='init method',    default='linear', choices=INIT_METH)
+  parser.add_argument('--eps',      help='tol eps',        default=1e-8, type=float)
+  parser.add_argument('--maxiter',  help='max optim iter', default=400,  type=int)
   # dev
+  parser.add_argument('--check',    help='get predicted FCI from *.csv',   action='store_true')
+  parser.add_argument('--no_comp',  help='do not use compound optim',      action='store_true')
   parser.add_argument('--run_all',  help='run all optim-init grid search', action='store_true')
   parser.add_argument('--log_path', help='track log out base path', default='log', type=str)
   args = parser.parse_args()
+
+  if args.check:
+    get_fci_from_csv(args)
+    exit(0)
 
   if args.run_all:
     print(f'[dev mode] objective: {args.objective}')
@@ -366,6 +425,6 @@ if __name__ == '__main__':
     run_all(args)
 
   else:
-    print('[submit mode]')
+    print(f'[submit mode] objective: {args.objective}')
     args.track = False
     run_compound(args)

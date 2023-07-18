@@ -20,3 +20,31 @@ FCI  energy:  -7.8823622867987249 Ha
 
 MQ energy: -7.882352708350972, steps: 54 (13.011s)
 QP energy: -7.882352812934435, steps: 48 (0.05737s)
+
+
+### benchmark over LiH
+
+#### run_all
+
+```
+for lib in ['mq', 'qp']:
+  for opt in ['sp', 'mq']:
+    for init in ['zeros', 'normal', 'uniform', 'ccsd']:
+      run() if combination is valid
+``` 
+
+#### run_all_all
+
+```
+for opt in [Adagrad, Adam, SGD]
+  for lr in [1e-2, 4e-2, 6-e2, 1e-1]
+    run_all()
+
+for MQ:
+  optim = Adagrad is the most fast and accurate
+  init = uniform / normal
+  lr ~= 5e-2
+for QP: (super fast and accurate)
+  optim = BFGS
+  init = any is ok
+```
