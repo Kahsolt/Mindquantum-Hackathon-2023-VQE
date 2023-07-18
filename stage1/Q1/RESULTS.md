@@ -5,10 +5,11 @@
 👉 reaching the lower real FCI the better
 
 > best score: 11.2901 
+> best local E1: -2.2746174479004226
 
 ```ini
 [config]
-ansatz = UCCSD
+ansatz = UCCSD-QP
 optim  = COBYLA + trust-constr
 tol    = 1e-6
 iters  = 500
@@ -27,7 +28,7 @@ iters  = 500
 [config]
 ansatz = QUCC
 optim  = trust-constr
-tol    = 1e-5
+tol    = 1e-6
 iters  = 500
-beta   = 4
+beta   = 8
 ```

@@ -13,32 +13,34 @@ from mindquantum.core.circuit import Circuit
 from mindquantum.algorithm.nisq.chem import uccsd_singlet_generator
 from qupack.vqe import ESConservation, ESConserveHam, ExpmPQRSFermionGate
 from openfermion.chem import MolecularData
+# monkey-patching
+ESConservation._check_qubits_max = lambda *args, **kwargs: None
 
-# this experimental solver optimizes either of the 
+# this solver optimizes either of the 
 #   - pyscf-computed real FCI
 #   - VQE-approximated E0 energy prediction (QuPack)
 
 OPTIM_METH = [
-#  'Nelder-Mead',
-#  'Powell',
+  # 'Nelder-Mead',
+  # 'Powell',
   'CG',
-#  'Newton-CG',
+  # 'Newton-CG',
   'BFGS',
-#  'L-BFGS-B',
-#  'TNC',
+  # 'L-BFGS-B',
+  # 'TNC',
   'COBYLA',
-#  'SLSQP',
-#  'dogleg',
+  # 'SLSQP',
+  # 'dogleg',
   'trust-constr',
-#  'trust-ncg',
-#  'trust-exact',
-#  'trust-krylov',
+  # 'trust-ncg',
+  # 'trust-exact',
+  # 'trust-krylov',
 ]
 INIT_METH = [
   'randu', 
-  'linear', 
-#  'randn', 
-#  'orig',
+  # 'linear', 
+  # 'randn', 
+  # 'orig',
 ]
 
 if 'typing':
@@ -51,7 +53,7 @@ if 'globals':
   circ: Circuit = None
   sim: ESConservation = None
   track_ene: List[float] = []
-  track_geo: List[Geo]   = []
+  track_geo: List[Geo] = []
 
   # contest time limit: 1h
   TIMEOUT_LIMIT = int(3600 * 0.95)
@@ -88,7 +90,7 @@ def write_csv(fp:str, name:Name, geo:Geo):
       fh.write('\n')
 
 
-# ↓↓↓ openfermionpyscf._run_pyscf.py: run_pyscf() ↓↓↓
+# ↓↓↓ openfermionpyscf/_run_pyscf.py: run_pyscf() ↓↓↓
 
 '''
   - calc hf_energy, prepare integrals 
@@ -96,6 +98,7 @@ def write_csv(fp:str, name:Name, geo:Geo):
 '''
 
 from pyscf import fci
+from pyscf.scf import hf ; hf.MUTE_CHKFILE = True
 from openfermionpyscf import PyscfMolecularData
 from openfermionpyscf._run_pyscf import prepare_pyscf_molecule, compute_scf, compute_integrals
 
@@ -140,14 +143,14 @@ def run_pyscf_hijack(molecule:MolecularData, run_fci:bool=False) -> PyscfMolecul
   pyscf_molecular_data.__dict__.update(molecule.__dict__)
   return pyscf_molecular_data
 
-# ↑↑↑ openfermionpyscf._run_pyscf.py: run_pyscf() ↑↑↑
+# ↑↑↑ openfermionpyscf/_run_pyscf.py: run_pyscf() ↑↑↑
 
 
 # ↓↓↓ VQE stuff ↓↓↓
 
 def get_mol(name:Name, geo:Geo, run_fci:bool=False) -> MolecularData:
   geometry = [[name[i], list(e)] for i, e in enumerate(geo.reshape(len(name), -1))]
-  mol = MolecularData(geometry, 'sto3g', multiplicity=1, data_directory='/tmp', filename='mol.h5')
+  mol = MolecularData(geometry, 'sto3g', multiplicity=1)
   # NOTE: make integral calculation info for `mol.get_molecular_hamiltonian()`
   return run_pyscf_hijack(mol, run_fci)
 
@@ -165,6 +168,7 @@ def gen_uccsd(mol:MolecularData) -> Circuit:
   ucc_fermion_ops = uccsd_singlet_generator(mol.n_qubits, mol.n_electrons, anti_hermitian=False)
   circ = Circuit()
   for term in ucc_fermion_ops: circ += ExpmPQRSFermionGate(term)
+  if args.track: circ.summary()
   return circ
 
 def run_uccsd(ham:ESConserveHam, circ:Circuit, sim:ESConservation) -> float:
@@ -181,7 +185,7 @@ def run_uccsd(ham:ESConserveHam, circ:Circuit, sim:ESConservation) -> float:
 # ↑↑↑ VQE stuff ↑↑↑
 
 
-def optim_fn(geo:Geo, name:Name, objective:str):
+def optim_fn(geo:Geo, name:Name, objective:str) -> float:
   global circ, sim, steps
 
   if objective == 'pyscf':
@@ -191,7 +195,7 @@ def optim_fn(geo:Geo, name:Name, objective:str):
     mol = get_mol(name, geo)    # only need *.h5 file
     ham = gen_ham(mol)
     if circ is None:
-      circ = gen_uccsd(mol) ; circ.summary()
+      circ = gen_uccsd(mol)
       sim = ESConservation(mol.n_qubits, mol.n_electrons)
     res = run_uccsd(ham, circ, sim)
   else:
@@ -215,7 +219,7 @@ def optim_fn(geo:Geo, name:Name, objective:str):
 
 
 @timer
-def run(args, name:Name, geo:Geo) -> Tuple[float, Name, Geo]:
+def run(args, name:Name, geo:Geo) -> Tuple[Name, Geo]:
   if args.init == 'randu':
     geo = np.random.uniform(low=-1.0, high=1.0, size=len(geo)) * args.init_w
   elif args.init == 'randn':
@@ -235,7 +239,7 @@ def run(args, name:Name, geo:Geo) -> Tuple[float, Name, Geo]:
     args=(name, args.objective), 
     method=args.optim, 
     tol=args.eps, 
-    options={'maxiter':args.maxiter, 'disp':True}
+    options={'maxiter':args.maxiter, 'disp':args.track}
   )
   t = time()
   best_x = res.x    # flattened
@@ -289,17 +293,9 @@ def run(args, name:Name, geo:Geo) -> Tuple[float, Name, Geo]:
 
 @timer
 def run_all(args):
-  args.track = True
   name, geo = read_csv(args.input_mol)
 
   def setup_exp(args) -> bool:
-    # setup log_dp
-    expname = f'O={args.optim}_i={args.init}'
-    expname += f'_w={args.init_w}' if args.init != 'orig' else ''
-    args.log_dp = os.path.abspath(os.path.join(args.log_path, expname))
-    if os.path.exists(args.log_dp): return True
-    os.makedirs(args.log_dp, exist_ok=True)
-  
     # reset globals
     global steps, circ, sim, track_ene, track_geo
 
@@ -309,6 +305,12 @@ def run_all(args):
     track_ene = []
     track_geo = []
 
+    # setup log_dp
+    expname = f'O={args.optim}_i={args.init}'
+    expname += f'_w={args.init_w}' if args.init != 'orig' else ''
+    args.log_dp = os.path.abspath(os.path.join(args.log_path, expname))
+    if os.path.exists(args.log_dp): return True
+    os.makedirs(args.log_dp, exist_ok=True)
     return False
 
   for optim in OPTIM_METH:
@@ -360,8 +362,10 @@ if __name__ == '__main__':
 
   if args.run_all:
     print(f'[dev mode] objective: {args.objective}')
+    args.track = True
     run_all(args)
 
   else:
     print('[submit mode]')
+    args.track = False
     run_compound(args)

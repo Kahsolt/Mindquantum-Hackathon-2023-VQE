@@ -20,19 +20,18 @@ OPTIM_METH = [
   'CG',
   'COBYLA',
   # bad
-  #'Nelder-Mead',
-  #'SLSQP',
+  # 'Nelder-Mead',
+  # 'SLSQP',
   # slow
-  #'Powell',
+  # 'Powell',
 ]
 INIT_METH = [
   # good
   'randu', 
-  'linear', 
-  # ok
-  #'orig',
+  # 'linear', 
   # bad
-  #'randn', 
+  # 'orig',
+  # 'randn', 
 ]
 INIT_W = 1
 

@@ -26,14 +26,15 @@ from mindquantum.algorithm.nisq.chem import (
   uccsd_singlet_get_packed_amplitudes,
 )
 from qupack.vqe import ESConservation, ESConserveHam, ExpmPQRSFermionGate
-
+# monkey-patching
+ESConservation._check_qubits_max = lambda *args, **kwargs: None
 
 # settings
 ANSATZ  = 'QUCC'
 OPTIM   = 'trust-constr'
-TOL     = 1e-5
-BETA    = 4
-EPS     = 1e-8
+TOL     = 1e-6
+BETA    = 8
+EPS     = 1e-3
 MAXITER = 500
 DEBUG   = False
 
@@ -55,7 +56,7 @@ ANSATZS = [
     'UCCSD',            # error large ~0.01
     'HEA',              # FIXME: this does not work, really...?!!
     # qupack
-    'UCCSD-QP',
+    'UCCSD-QP',         # error very large ~0.1
 ]
 OPTIMS = [
     'trust-constr',     # nice~
@@ -64,12 +65,8 @@ OPTIMS = [
     'COBYLA',           # error very large ~1
 ]
 
-if 'consts':
-    HAM_NULL  = Hamiltonian(QubitOperator(''))
-    CIRC_NULL = Circuit()
-
 if 'globals':
-    reg_term = 1e5      # save current reg_term for check
+    reg_term = None      # save current reg_term for check
 
 
 def get_ansatz(mol:MolecularData) -> Tuple[Circuit, List[float]]:
@@ -110,7 +107,7 @@ def get_ansatz(mol:MolecularData) -> Tuple[Circuit, List[float]]:
 
 def run_gs(mol:MolecularData, ham:Union[Hamiltonian, ESConserveHam]) -> Tuple[Union[Simulator, ESConservation], float]:
     # Declare the ground state simulator
-    if ANSATZ.endswith('QP'):
+    if isinstance(ham, ESConserveHam):
         gs_sim = ESConservation(mol.n_qubits, mol.n_electrons)
     else:
         gs_sim = Simulator('mqvector', mol.n_qubits)
@@ -140,10 +137,18 @@ def run_gs(mol:MolecularData, ham:Union[Hamiltonian, ESConserveHam]) -> Tuple[Un
 
     # Construct parameter resolver of the ground state circuit
     gs_pr = dict(zip(gs_circ.params_name, gs_res.x))
-    # Evolve into ground state
-    gs_sim.apply_circuit(gs_circ, gs_pr)
     # Calculate energy of ground state
-    gs_ene = gs_sim.get_expectation(ham).real
+    if isinstance(gs_sim, ESConservation):
+        gs_ene = gs_sim.get_expectation(ham, gs_circ, gs_pr).real
+    else:
+        # Evolve into ground state
+        gs_sim.apply_circuit(gs_circ, gs_pr)
+        if 'sugar':
+            gs_ene = gs_sim.get_expectation(ham).real
+        else:
+            qs0 = gs_sim.get_qs()
+            H = ham.hamiltonian.matrix().todense()
+            gs_ene = (qs0 @ H @ qs0).real
 
     print('E0 energy:', gs_ene)
     return gs_sim, gs_ene
@@ -151,16 +156,18 @@ def run_gs(mol:MolecularData, ham:Union[Hamiltonian, ESConserveHam]) -> Tuple[Un
 
 def run_es(mol:MolecularData, ham:Union[Hamiltonian, ESConserveHam], gs_sim:Union[Simulator, ESConservation], beta:float) -> float:
     # Declare the excited state simulator
-    if ANSATZ.endswith('QP'):
+    if isinstance(ham, ESConserveHam):
         es_sim = ESConservation(mol.n_qubits, mol.n_electrons)
+        HAM_NULL = ESConserveHam(FermionOperator(''))
     else:
         es_sim = Simulator('mqvector', mol.n_qubits)
+        HAM_NULL = Hamiltonian(QubitOperator(''))
     # Construct excited state ansatz circuit: |ψ(λ1)>
     es_circ, init_amplitudes = get_ansatz(mol)
     # Get the expectation and gradient calculating function: <ψ(λ1)|H|ψ(λ1)>
     es_grad_ops = es_sim.get_expectation_with_grad(ham, es_circ)
     # Get the expectation and gradient calculating function of inner product: <ψ(λ0)|ψ(λ1)> where H is I
-    ip_grad_ops = es_sim.get_expectation_with_grad(HAM_NULL, es_circ, circ_left=CIRC_NULL, simulator_left=gs_sim)
+    ip_grad_ops = es_sim.get_expectation_with_grad(HAM_NULL, es_circ, circ_left=Circuit(), simulator_left=gs_sim)
 
     # Define the objective function to be minimized
     def es_func(x, es_grad_ops, ip_grad_ops, beta:float) -> Tuple[float, ndarray]:
@@ -174,7 +181,7 @@ def run_es(mol:MolecularData, ham:Union[Hamiltonian, ESConserveHam], gs_sim:Unio
         g1 = np.squeeze(g1)     # [1, 1, 96] => [96]
         # reg term: `+ beta * |f1| ** 2``, where f1 = β * <ψ(λ0)|ψ(λ1)>
         punish_f = beta * np.abs(f1) ** 2
-        reg_term = np.real(punish_f)
+        if reg_term is not None: reg_term = np.real(punish_f)
         # grad of reg term: `+ beta * (g1' * f1 + g1 * f1')`
         punish_g = beta * (np.conj(g1) * f1 + g1 * np.conj(f1))
         return np.real(f0 + punish_f), np.real(g0 + punish_g)
@@ -193,10 +200,18 @@ def run_es(mol:MolecularData, ham:Union[Hamiltonian, ESConserveHam], gs_sim:Unio
 
     # Construct parameter resolver of the excited state circuit
     es_pr = dict(zip(es_circ.params_name, es_res.x))
-    # Evolve into excited state
-    es_sim.apply_circuit(es_circ, es_pr)
-    # Calculate energy of excited state
-    es_ene = es_sim.get_expectation(ham).real
+    # Calculate energy of ground state
+    if isinstance(gs_sim, ESConservation):
+        es_ene = es_sim.get_expectation(ham, es_circ, es_pr).real
+    else:
+        # Evolve into excited state
+        es_sim.apply_circuit(es_circ, es_pr)
+        if 'sugar':
+            es_ene = es_sim.get_expectation(ham).real
+        else:
+            qs1 = es_sim.get_qs()
+            H = ham.hamiltonian.matrix().todense()
+            es_ene = (qs1 @ H @ qs1).real
 
     print('E1 energy:', es_ene)
     return es_ene
@@ -228,13 +243,15 @@ def excited_state_solver(mol:MolecularData) -> float:
     
     global reg_term
     es_ene = gs_ene + 1
-    reg_term = 1e5
+    reg_term = 1e5 if EPS is not None else None
     beta = BETA
-    while gs_ene >= es_ene or reg_term > EPS:     # retry on case failed
+    while gs_ene >= es_ene or (EPS is not None and reg_term > EPS):     # retry on case failed
         # Excited state E1: |ψ(λ1)>
         es_ene = run_es(mol, ham, gs_sim, beta)
         # double the reg_term coeff
         beta *= 2
+
+        print('reg_term:', reg_term)
 
     return es_ene
 

@@ -12,6 +12,16 @@ import sys ; sys.path.append(SRC_PATH)
 from src.main import Main
 
 
+# override default settings for grid_search
+from src import main as mod
+mod.ANSATZ  = 'QUCC'
+mod.OPTIM   = 'BFGS'
+mod.TOL     = 1e-6
+mod.BETA    = 10
+mod.EPS     = 1e-6
+mod.MAXITER = 500
+
+
 class Timer:
 
     def __init__(self, t0=0.0):
@@ -64,8 +74,9 @@ if __name__ == '__main__':
             print('E0 truth:', E0_gt)
             print('E1 truth:', E1_gt, file=f)
             print('E1 truth:', E1_gt)
-            print('E1 error:', E1_hat - E1_gt, file=f)
-            print('E1 error:', E1_hat - E1_gt)
+            err = abs(E1_hat - E1_gt)
+            print('E1 error:', err, f'({"OK" if err <= thresh else "FAIL"})', file=f)
+            print('E1 error:', err, f'({"OK" if err <= thresh else "FAIL"})')
 
             E1_list.append(E1_hat)
             if abs(E1_list[-1] - E1_gt) <= thresh:
