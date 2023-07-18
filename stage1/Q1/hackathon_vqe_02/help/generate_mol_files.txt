@@ -1,0 +1,35 @@
+[H4_0.5]
+Hartree-Fock energy for H4_sto3g_singlet (4 electrons) is -1.6286097030298992.
+CCSD energy for H4_sto3g_singlet (4 electrons) is -1.6531113821916021.
+FCI energy for H4_sto3g_singlet (4 electrons) is -1.653116951940114.
+[H4_1.0]
+Hartree-Fock energy for H4_sto3g_singlet (4 electrons) is -2.098545936997719.
+CCSD energy for H4_sto3g_singlet (4 electrons) is -2.1663795216395325.
+FCI energy for H4_sto3g_singlet (4 electrons) is -2.1663874486347625.
+[H4_1.5]
+Hartree-Fock energy for H4_sto3g_singlet (4 electrons) is -1.829137412352686.
+CCSD energy for H4_sto3g_singlet (4 electrons) is -1.9976240454057863.
+FCI energy for H4_sto3g_singlet (4 electrons) is -1.9961503255188093.
+
+[LiH_0.5]
+Hartree-Fock energy for H1-Li1_sto3g_singlet (4 electrons) is -7.028410094541929.
+CCSD energy for H1-Li1_sto3g_singlet (4 electrons) is -7.050159911192338.
+FCI energy for H1-Li1_sto3g_singlet (4 electrons) is -7.0502250352999525.
+[LiH_1.5]
+Hartree-Fock energy for H1-Li1_sto3g_singlet (4 electrons) is -7.863357621535116.
+CCSD energy for H1-Li1_sto3g_singlet (4 electrons) is -7.882352909152678.
+FCI energy for H1-Li1_sto3g_singlet (4 electrons) is -7.882362286798725.
+[LiH_2.5]
+Hartree-Fock energy for H1-Li1_sto3g_singlet (4 electrons) is -7.770873669221905.
+CCSD energy for H1-Li1_sto3g_singlet (4 electrons) is -7.82368346390477.
+FCI energy for H1-Li1_sto3g_singlet (4 electrons) is -7.823723883467703.
+
+[H2_1.4]
+Hartree-Fock energy for H2_sto3g_singlet (2 electrons) is -0.9414806547077985.
+CCSD energy for H2_sto3g_singlet (2 electrons) is -1.015468249381013.
+FCI energy for H2_sto3g_singlet (2 electrons) is -1.0154682492882452.
+
+[BeH2_1.3]
+Hartree-Fock energy for H2-Be1_sto3g_singlet (6 electrons) is -15.561278032307992.
+CCSD energy for H2-Be1_sto3g_singlet (6 electrons) is -15.594672844577754.
+FCI energy for H2-Be1_sto3g_singlet (6 electrons) is -15.595047080934396.
