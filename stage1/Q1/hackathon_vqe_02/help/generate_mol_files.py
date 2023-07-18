@@ -13,6 +13,7 @@ def generate_H2_file():
     basis = "sto3g"
     spin = 0
 
+    print('[H2_1.4]')
     mol0 = MolecularData(geometry, basis, multiplicity=2 * spin + 1, filename="H2_1.4")
     mol = run_pyscf(mol0, run_scf=1, run_ccsd=1, run_fci=1, verbose=1)
     mol.save()
@@ -29,6 +30,7 @@ def generate_H4_file():
         basis = "sto3g"
         spin = 0
 
+        print(f'[H4_{bond_len}]')
         mol0 = MolecularData(geometry, basis, multiplicity=2 * spin + 1, filename=f"H4_{bond_len}")
         mol = run_pyscf(mol0, run_scf=1, run_ccsd=1, run_fci=1, verbose=1)
         mol.save()
@@ -44,6 +46,7 @@ def generate_LiH_file():
         basis = "sto3g"
         spin = 0
 
+        print(f'[LiH_{bond_len}]')
         mol0 = MolecularData(geometry, basis, multiplicity=2 * spin + 1, filename=f"LiH_{bond_len}")
         mol = run_pyscf(mol0, run_scf=1, run_ccsd=1, run_fci=1, verbose=1)
         mol.save()
@@ -58,14 +61,14 @@ def generate_BeH2_file():
     basis = "sto3g"
     spin = 0
 
-    mol0 = MolecularData(
-        geometry, basis, multiplicity=2 * spin + 1, filename="BeH2_1.3"
-    )
+    print('[BeH2_1.3]')
+    mol0 = MolecularData(geometry, basis, multiplicity=2 * spin + 1, filename="BeH2_1.3")
     mol = run_pyscf(mol0, run_scf=1, run_ccsd=1, run_fci=1, verbose=1)
     mol.save()
 
 
 if __name__ == "__main__":
+    generate_H2_file()
     generate_H4_file()
     generate_LiH_file()
     generate_BeH2_file()

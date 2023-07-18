@@ -1,70 +1,95 @@
 # Judging program. You can run it to test your algorithm.
 
-import sys
-sys.path.append("./src")
-import os
-os.environ["OMP_NUM_THREADS"] = "4"
-from src.main import Main
-from openfermion.chem import MolecularData
+import os ; os.environ['OMP_NUM_THREADS'] = '4'
+from time import time
+
 import numpy as np
-import time
+from openfermion.chem import MolecularData
+
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+SRC_PATH = os.path.join(BASE_PATH, 'src')
+import sys ; sys.path.append(SRC_PATH)
+from src.main import Main
 
 
 class Timer:
+
     def __init__(self, t0=0.0):
-        self.start_time = time.time()
+        self.start_time = time()
         self.t0 = t0
 
     def runtime(self):
-        return time.time() - self.start_time + self.t0
+        return time() - self.start_time + self.t0
 
     def resetime(self):
-        self.start_time = time.time()
+        self.start_time = time()
 
 
-# molecules and their FCI excited state energy
+# molecules and their FCI ground/excited state energy
 molecules = [
-    ("H4_0.5", -0.90886229),
-    ("H4_1.0", -1.93375723),
-    ("H4_1.5", -1.92555851),
-    ("LiH_0.5", -7.00849729),
-    ("LiH_1.5", -7.7606092),
-    ("LiH_2.5", -7.77815121),
-#   Unknown1,
-#   Unknown2,
-#   Unknown3,
+    # (name, E0, E1)
+    ('H4_0.5',    -1.653116952,  -0.90886229),
+    ('H4_1.0',    -2.166387449,  -1.93375723),
+    ('H4_1.5',    -1.996150326,  -1.92555851),
+    ('LiH_0.5',   -7.050225035,  -7.00849729),
+    ('LiH_1.5',   -7.882362287,  -7.76060920),      # hard case
+    ('LiH_2.5',   -7.823723883,  -7.77815121),
+#    ('H2_1.4',    -1.015468249,  -0.87542794),      # this is even OK on HEA, but too toy
+#    ('BeH2_1.3', -15.595047081, -15.329769349),     # hard case
 ]
-err_num = np.ones(len(molecules))
+# error threshold
+thresh = 0.0016
 
-if __name__ == "__main__":
-    with open("./output_info.o", "a") as f:
-        main = Main()
-        timer = Timer()
-        en_list, time_list = [], []
-        for idx, (molecule, energy) in enumerate(molecules):
-            print("Start: ", molecule, file=f)
-            mol_file = "./molecule_files/" + molecule
-            mol = MolecularData(filename=mol_file)
+
+if __name__ == '__main__':
+    main = Main()
+    timer = Timer()
+    E1_list, time_list = [], []
+    err_flag = np.ones(len(molecules))
+    with open('./results.txt', 'a') as f:
+        S = time()
+
+        for idx, (name, E0_gt, E1_gt) in enumerate(molecules):
+            print(f'[{name}]', file=f)
+            print(f'[{name}]')
+
+            mol = MolecularData(filename=os.path.join(BASE_PATH, f'./molecule_files/{name}'))
             mol.load()
-            t0 = timer.runtime()
-            en_list.append(main.run(mol))
-            time_list.append(timer.runtime() - t0)
-            if abs(en_list[-1] - energy) <= 0.0016:
-                err_num[idx] = 0
 
-        if len(en_list) != len(molecules):
-            print("The length of en_list is not equal to that of molecules!", file=f)
+            t = timer.runtime()
+            E1_hat = main.run(mol)
+            time_list.append(timer.runtime() - t)
+
+            print('E0 truth:', E0_gt, file=f)
+            print('E0 truth:', E0_gt)
+            print('E1 truth:', E1_gt, file=f)
+            print('E1 truth:', E1_gt)
+            print('E1 error:', E1_hat - E1_gt, file=f)
+            print('E1 error:', E1_hat - E1_gt)
+
+            E1_list.append(E1_hat)
+            if abs(E1_list[-1] - E1_gt) <= thresh:
+                err_flag[idx] = 0
+
+        if len(E1_list) != len(molecules):
+            print('The length of en_list is not equal to that of molecules!', file=f)
+
         total_time = np.sum(time_list)
-        if (err_num == 1).any():
-            score = err_num.sum() * 10000
+        if (err_flag == 1).any():
+            score = err_flag.sum() * 10000
         else:
             score = total_time
 
-        print("Molecule_information: ", molecules, file=f)
-        print("Result_energies: ", en_list, file=f)
-        print("Time_list: ", time_list, file=f)
-        print("Num_err: ", err_num, file=f)
-        print("Total_time: ", total_time, file=f)
-        print("Score: ", score, file=f)
+        print('Molecules: ',  molecules,  file=f)
+        print('Result E1: ',  E1_list,    file=f)
+        print('Errors: ',     err_flag,   file=f)
+        print('Time: ',       time_list,  file=f)
+        print('Total time: ', total_time, file=f)
+        print('Score: ',      score,      file=f)
+        print('=' * 42, file=f)
 
-        print("Score: ", score)
+        print('Score: ', score)
+
+        T = time()
+        print(f'[Timer] {T - S:.3f}s', file=f)
+        print(f'[Timer] {T - S:.3f}s')

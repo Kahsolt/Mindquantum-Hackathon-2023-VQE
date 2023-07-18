@@ -1,0 +1,35 @@
+[H4_0.5]
+converged SCF energy = -1.6286097030299
+FCI ground  state energy: -1.653116951940114
+FCI excited state energy: -0.9088622929264432
+[H4_1.0]
+converged SCF energy = -2.09854593699772
+FCI ground  state energy: -2.1663874486347625
+FCI excited state energy: -1.9337572335145738
+[H4_1.5]
+converged SCF energy = -1.82913741235269
+FCI ground  state energy: -1.9961503255188093
+FCI excited state energy: -1.9255585139359028
+
+[LiH_0.5]
+converged SCF energy = -7.02841009454193
+FCI ground  state energy: -7.050225035299954
+FCI excited state energy: -7.008497288243566
+[LiH_1.5]
+converged SCF energy = -7.86335762153512
+FCI ground  state energy: -7.882362286798725
+FCI excited state energy: -7.760609199267933
+[LiH_2.5]
+converged SCF energy = -7.77087366922191
+FCI ground  state energy: -7.823723883467699
+FCI excited state energy: -7.778151212110472
+
+[H2_1.4]
+converged SCF energy = -0.941480654707799
+FCI ground  state energy: -1.015468249288245
+FCI excited state energy: -0.8754279389779089
+
+[BeH2_1.3]
+converged SCF energy = -15.561278032308
+FCI ground  state energy: -15.595047080930872
+FCI excited state energy: -15.329769349356688
