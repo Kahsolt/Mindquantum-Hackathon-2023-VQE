@@ -33,3 +33,8 @@ FCI energy for H2_sto3g_singlet (2 electrons) is -1.0154682492882452.
 Hartree-Fock energy for H2-Be1_sto3g_singlet (6 electrons) is -15.561278032307992.
 CCSD energy for H2-Be1_sto3g_singlet (6 electrons) is -15.594672844577754.
 FCI energy for H2-Be1_sto3g_singlet (6 electrons) is -15.595047080934396.
+
+[H2O_1.0]
+Hartree-Fock energy for H2-O1_sto3g_singlet (10 electrons) is -74.84159216017146.
+CCSD energy for H2-O1_sto3g_singlet (10 electrons) is -74.8820371115352.
+FCI energy for H2-O1_sto3g_singlet (10 electrons) is -74.88230198918451.

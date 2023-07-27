@@ -67,8 +67,24 @@ def generate_BeH2_file():
     mol.save()
 
 
+def generate_H2O_file():
+    geometry = [
+        ["H", [0.0, 0.0, -1.0]],
+        ["O", [0.0, 0.0,  0.0]],
+        ["H", [0.0, 0.0, +1.0]],
+    ]
+    basis = "sto3g"
+    spin = 0
+
+    print('[H2O_1.0]')
+    mol0 = MolecularData(geometry, basis, multiplicity=2 * spin + 1, filename="H2O_1.0")
+    mol = run_pyscf(mol0, run_scf=1, run_ccsd=1, run_fci=1, verbose=1)
+    mol.save()
+
+
 if __name__ == "__main__":
     generate_H2_file()
     generate_H4_file()
     generate_LiH_file()
     generate_BeH2_file()
+    generate_H2O_file()

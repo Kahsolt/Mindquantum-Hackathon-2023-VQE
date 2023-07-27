@@ -4,18 +4,18 @@
 
 👉 reaching the lower real FCI the better
 
-> best score: 11.297
+> best score: 11.297 (stage1) / 11.2884 (stage2)
 > best local E1: -2.2746174479004226
 
 ```ini
 [config]
 ansatz = UCCSD-QP
-optim  = COBYLA + trust-constr
+optim  = COBYLA + BFGS / trust-constr
 tol    = 1e-8
-iters  = 200 + 400
+iters  = 500
 
 [submit hist]
-COBYLA(200) + BFGS(400)  11.2819 
+COBYLA + BFGS  - 500   11.297 
 COBYLA(500) + BFGS(1000) 11.2841 
 COBYLA(500) + BFGS(1000) + predicted h4.csv  11.2661
 COBYLA + BFGS  - 500   11.297 
@@ -31,7 +31,7 @@ COBYLA + trust - 500   11.268
 
 👉 within precision error, running the faster the better
 
-> best score: 275.5122 
+> best score: 275.5122 (stage1) / 397.1758 (stage2)
 
 ```python
 config1 = {

@@ -1,10 +1,16 @@
-# HUAWEI hackathon 2023
+# MindSpore Quantum Compuation Hackathon 2023
 
-    华为 MindSpore 2023 量子计算黑客松全国大赛
+    量子信息技术与应用创新大赛 —— 2023 MindSpore 量子计算黑客松全国大赛
 
 ----
 
-比赛页面： [MindSpore-2023-量子计算黑客松全国大赛](https://competition.huaweicloud.com/information/1000041884/introduction)
+比赛页面: [https://competition.huaweicloud.com/information/1000041884/introduction](https://competition.huaweicloud.com/information/1000041884/introduction)
+
+比赛分为三个阶段：
+
+- 热身赛 stage0
+- 初赛 stage1
+- 决赛 stage2
 
 
 ### install

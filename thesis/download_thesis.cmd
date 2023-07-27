@@ -20,3 +20,6 @@ wget -nc https://arxiv.org/pdf/1011.1468.pdf
 
 REM Qubit coupled-cluster method: A systematic approach to quantum chemistry on a quantum computer
 wget -nc https://arxiv.org/pdf/1809.03827.pdf
+
+REM Noisy intermediate-scale quantum (NISQ) algorithms
+wget -nc https://arxiv.org/pdf/2101.08448.pdf

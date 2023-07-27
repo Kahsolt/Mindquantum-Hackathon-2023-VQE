@@ -13,6 +13,7 @@ GEOMETRIES = {
     'LiH_2.5':  'Li 0 0 0; H 0 0 2.5',
     'H2_1.4':   'H 0 0 0; H 0 0 1.4',
     'BeH2_1.3': 'Be 0 0 0; H 0 0 1.3; H 0 0 -1.3',
+    'H2O_1.0':  'H 0 0 -1; O 0 0 0; H 0 0 1',
 }
 
 for name, geo in GEOMETRIES.items():

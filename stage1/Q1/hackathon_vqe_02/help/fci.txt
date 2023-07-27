@@ -33,3 +33,8 @@ FCI excited state energy: -0.8754279389779089
 converged SCF energy = -15.561278032308
 FCI ground  state energy: -15.595047080930872
 FCI excited state energy: -15.329769349356688
+
+[H2O_1.0]
+converged SCF energy = -74.8415921601715
+FCI ground  state energy: -74.88230198918458
+FCI excited state energy: -74.71606158706648

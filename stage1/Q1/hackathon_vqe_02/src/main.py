@@ -83,8 +83,8 @@ def run_wssvqe(mol:MolecularData) -> float:
 
 
 def excited_state_solver(mol:MolecularData) -> float:
-  #algo = 'ocvqe'
-  algo = 'opocvqe'
+  algo = 'ocvqe'
+  #algo = 'opocvqe'
   #algo = 'wssvqe'
   return globals()[f'run_{algo}'](mol)
 
