@@ -408,7 +408,7 @@ def get_args():
   parser.add_argument('-O', '--optim',      help='optim method',           default='BFGS', choices=OPTIM_METH)
   parser.add_argument('--init',     help='init method',    default='linear', choices=INIT_METH)
   parser.add_argument('--eps',      help='tol eps',        default=1e-8, type=float)
-  parser.add_argument('--maxiter',  help='max optim iter', default=500,  type=int)
+  parser.add_argument('--maxiter',  help='max optim iter', default=1000, type=int)
   # dev
   parser.add_argument('--check',    help='get predicted FCI from *.csv',   action='store_true')
   parser.add_argument('--no_comp',  help='do not use compound optim',      action='store_true')
