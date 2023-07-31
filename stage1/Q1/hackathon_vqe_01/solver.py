@@ -86,14 +86,16 @@ def write_csv(fp:str, name:Name, geo:Geo):
       fh.write('\n')
 
 
-def get_fci_from_csv(args):
+def get_fci_from_csv(args) -> float:
   # due to *.csv read/write precision error for judger of this contest
   # we do NOT use direct output in the program as the final FCI value
   # we parse the csv file and reconstruct to get it :(
 
   name, geo = read_csv(args.output_mol)
   mol = get_mol(name, geo)
-  print('final fci:', mol.fci_energy)
+  fci = mol.fci_energy
+  print('final fci:', fci)
+  return fci
 
 
 # ↓↓↓ openfermionpyscf/_run_pyscf.py ↓↓↓
@@ -191,13 +193,13 @@ def run_uccsd(ham:ESConserveHam, circ:Circuit, sim:ESConservation) -> float:
 # ↑↑↑ qupack.vqe ↑↑↑
 
 
-def optim_fn(geo:Geo, name:Name, objective:str) -> float:
+def optim_fn(geo:Geo, name:Name, args) -> float:
   global circ, sim, steps
 
-  if objective == 'pyscf':
+  if args.objective == 'pyscf':
     mol = get_mol(name, geo, run_fci=True)
     res: float = mol.fci_energy
-  elif objective == 'uccsd':
+  elif args.objective == 'uccsd':
     mol = get_mol(name, geo)    # only need *.h5 file
     ham = get_ham(mol)
     if circ is None:
@@ -205,7 +207,7 @@ def optim_fn(geo:Geo, name:Name, objective:str) -> float:
       sim = ESConservation(mol.n_qubits, mol.n_electrons)
     res = run_uccsd(ham, circ, sim)
   else:
-    raise ValueError(f'unknown objective: {objective}')
+    raise ValueError(f'unknown objective: {args.objective}')
 
   time_elapse = time() - global_T
 
@@ -275,7 +277,7 @@ def run(args, name:Name, init_geo:Geo) -> Tuple[Name, Geo]:
   res = minimize(
     optim_fn, 
     x0=geo, 
-    args=(name, args.objective), 
+    args=(name, args), 
     method=args.optim, 
     tol=args.eps, 
     options={
@@ -334,7 +336,6 @@ def run(args, name:Name, init_geo:Geo) -> Tuple[Name, Geo]:
 
   return name, best_x
 
-
 @timer
 def run_all(args):
   name, geo = read_csv(args.input_mol)
@@ -370,7 +371,6 @@ def run_all(args):
       try: run(args, name, geo)
       except: print_exc()
 
-
 @timer
 def run_compound(args):
   name, best_x = read_csv(args.input_mol)
@@ -384,8 +384,9 @@ def run_compound(args):
   if args.no_comp: go()
   else:
     configs = [
-      'COBYLA',   # this is fast
-      'BFGS',     # this is precise
+      'COBYLA',         # this is fast
+      'BFGS',           # this is fine
+      #'trust-constr',   # this is precise (but overfit?)
     ]
 
     maxiter = args.maxiter
@@ -398,7 +399,7 @@ def run_compound(args):
       go()
 
 
-if __name__ == '__main__':
+def get_args():
   parser = ArgumentParser()
   # run
   parser.add_argument('-i', '--input-mol',  help='input molecular *.csv',  default='h4.csv')
@@ -407,13 +408,17 @@ if __name__ == '__main__':
   parser.add_argument('-O', '--optim',      help='optim method',           default='BFGS', choices=OPTIM_METH)
   parser.add_argument('--init',     help='init method',    default='linear', choices=INIT_METH)
   parser.add_argument('--eps',      help='tol eps',        default=1e-8, type=float)
-  parser.add_argument('--maxiter',  help='max optim iter', default=400,  type=int)
+  parser.add_argument('--maxiter',  help='max optim iter', default=500,  type=int)
   # dev
   parser.add_argument('--check',    help='get predicted FCI from *.csv',   action='store_true')
   parser.add_argument('--no_comp',  help='do not use compound optim',      action='store_true')
   parser.add_argument('--run_all',  help='run all optim-init grid search', action='store_true')
   parser.add_argument('--log_path', help='track log out base path', default='log', type=str)
-  args = parser.parse_args()
+  return parser.parse_args()
+
+
+if __name__ == '__main__':
+  args = get_args()
 
   if args.check:
     get_fci_from_csv(args)
