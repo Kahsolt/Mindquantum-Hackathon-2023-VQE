@@ -31,6 +31,8 @@ BASE_PATH = Path(__file__).parent
 CACHE_PATH = BASE_PATH / '.cache' ; CACHE_PATH.mkdir(exist_ok=True)
 
 PEEK = os.environ.get('peek', False)
+DEBUG_HAM = os.environ.get('debug_ham', False)
+DEBUG_ANSATZ = os.environ.get('debug_ansatz', False)
 
 Ham = Union[Hamiltonian, ESConserveHam]
 QVM = Union[Simulator, ESConservation]
@@ -54,7 +56,7 @@ def get_ham(mol:MolecularData, is_fermi:bool=False) -> Ham:
     ham_op = ham_qo.real      # FIXME: why discard imag part?
     ham = Hamiltonian(ham_op)     # ham of a QubitOperator
 
-  if not 'debug':
+  if DEBUG_HAM:
     mat = ham.hamiltonian.matrix().todense()
     diag = np.diag(mat)
     breakpoint()
@@ -100,7 +102,7 @@ def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) 
   else:
     vqc = hartreefock_wfn_circuit + ansatz_circuit
 
-  if not 'debug':
+  if DEBUG_ANSATZ:
     vqc.summary()
 
   return vqc, init_amp

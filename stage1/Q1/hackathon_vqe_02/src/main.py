@@ -54,9 +54,10 @@ def run_ocvqe(mol:MolecularData) -> float:
 
 
 def run_opocvqe(mol:MolecularData) -> float:
-  config = {
+  config1 = {
     'ansatz':  'QUCC',
     'trotter': 1,
+    'opt':     'scipy',
     'optims': [
       {
         'optim':   'CG',    # this is fast on converge 
@@ -74,7 +75,17 @@ def run_opocvqe(mol:MolecularData) -> float:
       },
     ]
   }
-  return opocvqe_solver(mol, config)
+  config2 = {
+    'ansatz':  'QUCC',
+    'trotter': 1,
+    'opt':     'mindspore',
+    'optim':   'Adagrad',
+    'lr':      0.15,
+    'beta':    100,
+    'w':       0.1,
+    'maxiter': 1000,
+  }
+  return opocvqe_solver(mol, config1)
 
 
 def run_ssvqe(mol:MolecularData) -> float:
@@ -118,8 +129,8 @@ def run_wssvqe(mol:MolecularData) -> float:
 
 def excited_state_solver(mol:MolecularData) -> float:
   #algo = 'ocvqe'
-  #algo = 'opocvqe'
-  algo = 'ssvqe'
+  algo = 'opocvqe'
+  #algo = 'ssvqe'
   #algo = 'wssvqe'
   return globals()[f'run_{algo}'](mol)
 

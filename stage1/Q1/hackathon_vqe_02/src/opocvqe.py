@@ -5,6 +5,12 @@
 # implementation of one-pass OC-VQE, combining OC-VQE and SS-VQE
 
 from .common import *
+import mindspore as ms
+ms.context.set_context(mode=ms.context.PYNATIVE_MODE, device_target="CPU")
+import mindspore.nn as nn
+from mindspore.common.parameter import Parameter
+from mindquantum.framework import MQAnsatzOnlyLayer
+from mindquantum.simulator.utils import GradOpsWrapper
 from mindquantum.core.circuit import add_prefix
 
 # save current reg term for check
@@ -61,6 +67,34 @@ def grad_ops_hijack(
 # ↑↑↑ mindquantum/simulator/mqsim.py ↑↑↑
 
 
+def optim_scipy(func:Callable, init_amp:np.ndarray, grad_ops:Tuple[Callable], config:Config) -> List[float]:
+  n_round = len(config['optims'])
+  for i, optim in enumerate(config['optims']):
+    print(f'[{i+1}/{n_round}] {optim["optim"]}')
+    res = minimize(
+      func,
+      init_amp,
+      args=tuple([*grad_ops, optim['beta'], optim['w']]),
+      method=optim['optim'],
+      jac=True,
+      tol=optim['tol'],
+      options={
+        'maxiter': optim['maxiter'], 
+        'disp': optim.get('debug', False),
+      },
+    )
+    init_amp = res.x
+  return res.x
+
+
+def optim_mindspore(pqc:MQAnsatzOnlyLayer, config:Config) -> ndarray:
+  optim_cls = getattr(nn.optim, config['optim'])
+  optimizer = optim_cls(pqc.trainable_params(), learning_rate=config['lr'])
+  train_pqc = nn.TrainOneStepCell(pqc, optimizer)
+  for _ in range(config['maxiter']): train_pqc()
+  return np.asarray(pqc.weight.data, dtype=np.float32)
+
+
 def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
   # Declare the simulator
   if isinstance(ham, ESConserveHam):
@@ -106,26 +140,35 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
     init_amp = np.random.random(len_gs + len_es) - 0.5
 
   # Get optimized result
-  n_round = len(config['optims'])
-  for i, optim in enumerate(config['optims']):
-    print(f'[{i+1}/{n_round}] {optim["optim"]}')
-    res = minimize(
-      func,
-      init_amp,
-      args=(gs_grad_ops, es_grad_ops, ip_grad_ops, optim['beta'], optim['w']),
-      method=optim['optim'],
-      jac=True,
-      tol=optim['tol'],
-      options={
-        'maxiter': optim['maxiter'], 
-        'disp': optim.get('debug', False),
-      },
+  if config['opt'] == 'scipy':
+    params = optim_scipy(func, init_amp, (gs_grad_ops, es_grad_ops, ip_grad_ops), config)
+  
+  elif config['opt'] == 'mindspore':
+    def grad_ops(x):
+      f, g = func(x, gs_grad_ops, es_grad_ops, ip_grad_ops, config['beta'], config['w'])
+      f = np.expand_dims(np.expand_dims(f, 0), 0)
+      g = g[None, None, :]
+      return f, g
+    
+    grad_ops_wrapper = GradOpsWrapper(
+      grad_ops, 
+      [ham], 
+      es_circ, 
+      gs_circ, 
+      gs_circ.all_encoder.keys() + es_circ.all_encoder.keys(), 
+      gs_circ.all_ansatz .keys() + es_circ.all_ansatz .keys(), 
+      None,
     )
-    init_amp = res.x
+
+    pqc = MQAnsatzOnlyLayer(grad_ops_wrapper)
+    pqc.weight = Parameter(ms.Tensor(init_amp, pqc.weight.dtype))
+    params = optim_mindspore(pqc, config)
+  
+  else: raise ValueError(f'unknown optim lib: {config["opt"]}')
 
   # Get the energyies
-  sim.reset() ; f0 = run_expectaion(sim, ham, gs_circ, res.x[:len_gs])
-  sim.reset() ; f1 = run_expectaion(sim, ham, es_circ, res.x[-len_es:])
+  sim.reset() ; f0 = run_expectaion(sim, ham, gs_circ, params[:len_gs])
+  sim.reset() ; f1 = run_expectaion(sim, ham, es_circ, params[-len_es:])
   
   print('E0 energy:', f0)
   print('E1 energy:', f1)
@@ -137,8 +180,11 @@ def opocvqe_solver(mol:MolecularData, config:Config) -> float:
   ham = get_ham(mol, ansatz.endswith('QP'))
 
   # Find the lowest two energies by min. U|φ0> + w*U|φ1> + β*<φ0|U'U|φ1>
-  for optim in config['optims']:
-    assert 0.0 < optim['w'] < 1.0
+  if 'optims' in config:
+    for optim in config['optims']:
+      assert 0.0 < optim['w'] < 1.0
+  else:
+    assert 0.0 < config['w'] < 1.0
   gs_ene, es_ene = run(mol, ham, config)
 
   print('reg_term:', punish_f)
