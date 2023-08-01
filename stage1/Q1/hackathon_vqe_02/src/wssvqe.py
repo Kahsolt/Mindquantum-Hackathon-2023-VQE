@@ -52,8 +52,8 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
   )
 
   # Get the energy
-  f0 = run_expectaion(sim.copy(), ham, q0_circ, res.x)
-  f1 = run_expectaion(sim,        ham, q1_circ, res.x)
+  f0 = run_expectaion(sim, ham, q0_circ, res.x)
+  f1 = run_expectaion(sim, ham, q1_circ, res.x)
 
   print('E0 energy:', f0)
   print('E1 energy:', f1)

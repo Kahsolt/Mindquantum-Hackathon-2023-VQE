@@ -104,19 +104,22 @@ def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) 
 
 
 def run_expectaion(sim:QVM, ham:Ham, circ:Circuit, params:ndarray) -> float:
+  # Clear anything
+  sim.reset()
+
   # Construct parameter resolver of the taregt state circuit
   pr = dict(zip(circ.params_name, params))
   # Calculate energy of ground state
   if isinstance(sim, ESConservation):
-    E = sim.get_expectation(ham, circ, pr).real
+    E = sim.get_expectation(ham, circ, pr)
   else:
     # Evolve into tagert state
     sim.apply_circuit(circ, pr)
     if 'sugar':
-      E = sim.get_expectation(ham).real
+      E = sim.get_expectation(ham)
     else:
       qs1 = sim.get_qs()
       H = ham.hamiltonian.matrix().todense()
-      E = (qs1 @ H @ qs1).real
+      E = (qs1 @ H @ qs1)
 
-  return E
+  return E.real
