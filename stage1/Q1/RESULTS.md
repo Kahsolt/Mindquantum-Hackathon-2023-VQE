@@ -5,7 +5,7 @@
 👉 reaching the lower real FCI the better
 
 > best score: 11.297 (stage1) / 11.2956 (stage2)
-> best local E1: -2.2746177069602753
+> best local E1: -2.2746177087120563
 
 ```ini
 [config]
