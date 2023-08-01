@@ -2,6 +2,7 @@
 # Author: Armit
 # Create Time: 2023/07/19 
 
+import os
 from pathlib import Path
 from typing import Callable, Any, Union, List, Tuple, Dict
 
@@ -28,6 +29,8 @@ ESConservation._check_qubits_max = lambda *args, **kwargs: None   # monkey-patch
 
 BASE_PATH = Path(__file__).parent
 CACHE_PATH = BASE_PATH / '.cache' ; CACHE_PATH.mkdir(exist_ok=True)
+
+PEEK = os.environ.get('peek', False)
 
 Ham = Union[Hamiltonian, ESConserveHam]
 QVM = Union[Simulator, ESConservation]
@@ -104,9 +107,6 @@ def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) 
 
 
 def run_expectaion(sim:QVM, ham:Ham, circ:Circuit, params:ndarray) -> float:
-  # Clear anything
-  sim.reset()
-
   # Construct parameter resolver of the taregt state circuit
   pr = dict(zip(circ.params_name, params))
   # Calculate energy of ground state

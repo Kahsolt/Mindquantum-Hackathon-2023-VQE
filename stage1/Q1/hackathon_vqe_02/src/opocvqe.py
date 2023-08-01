@@ -96,7 +96,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
     punish_f = beta * np.abs(f_) ** 2
     punish_g = beta * (np.conj(g_) * f_ + g_ * np.conj(f_))
 
-    print('f0:', f0.real, 'f1:', f1.real, 'punish_f:', punish_f)
+    if PEEK: print('gs:', f0.real, 'es:', f1.real, 'reg:', punish_f)
     return np.real(f_sum + punish_f), np.real(g_cat + punish_g)
 
   # Initialize amplitudes
@@ -105,7 +105,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
   else:
     init_amp = np.random.random(len_gs + len_es) - 0.5
 
-  # Get Optimized result
+  # Get optimized result
   n_round = len(config['optims'])
   for i, optim in enumerate(config['optims']):
     print(f'[{i+1}/{n_round}] {optim["optim"]}')
@@ -123,9 +123,9 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
     )
     init_amp = res.x
 
-  # Get the energy
-  f0 = run_expectaion(sim, ham, gs_circ, res.x[:len_gs])
-  f1 = run_expectaion(sim, ham, es_circ, res.x[-len_es:])
+  # Get the energyies
+  sim.reset() ; f0 = run_expectaion(sim, ham, gs_circ, res.x[:len_gs])
+  sim.reset() ; f1 = run_expectaion(sim, ham, es_circ, res.x[-len_es:])
   
   print('E0 energy:', f0)
   print('E1 energy:', f1)

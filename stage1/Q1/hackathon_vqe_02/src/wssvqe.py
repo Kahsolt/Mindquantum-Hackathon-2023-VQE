@@ -2,7 +2,6 @@
 # Author: Armit
 # Create Time: 2023/07/20
 
-# NOTE: this does NOT work, though implementation is fine :(
 # implementation of weighted SS-VQE in "Subspace-search variational quantum eigensolver for excited states"
 
 from .common import *
@@ -32,12 +31,14 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
     f0, g0 = q0_grad_ops(x)
     f1, g1 = q1_grad_ops(x)
     f0, f1, g0, g1 = [np.squeeze(x) for x in [f0, f1, g0, g1]]
+    if PEEK: print('gs:', f0.real, 'es:', f1.real)
     return np.real(f0 + w * f1), np.real(g0 + w * g1)
   
   # Initialize amplitudes
-  init_amp = init_amp if init_amp is not None else np.random.random(len(ansatz.all_paras)) - 0.5
+  if init_amp is None:
+    init_amp = np.random.random(len(ansatz.all_paras)) - 0.5
   
-  # Get Optimized result: min. E0 = <ψ(λ0)|H|ψ(λ0)>
+  # Get optimized result
   res = minimize(
     func,
     init_amp,
@@ -51,9 +52,9 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
     },
   )
 
-  # Get the energy
-  f0 = run_expectaion(sim, ham, q0_circ, res.x)
-  f1 = run_expectaion(sim, ham, q1_circ, res.x)
+  # Get the energies
+  sim.reset() ; f0 = run_expectaion(sim, ham, q0_circ, res.x)
+  sim.reset() ; f1 = run_expectaion(sim, ham, q1_circ, res.x)
 
   print('E0 energy:', f0)
   print('E1 energy:', f1)

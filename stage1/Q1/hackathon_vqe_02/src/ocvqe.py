@@ -20,6 +20,7 @@ def run_gs(mol:MolecularData, ham:Ham, config:Config) -> Tuple[QVM, float, Param
   
   # Construct ground state ansatz circuit: |ψ(λ0)>
   gs_circ, init_amp = get_ansatz(mol, config['ansatz'], config)
+
   # load cached if exists
   if config['dump']:
     fp = CACHE_PATH / f'ocvqe-{config["ansatz"]}-{Path(mol.filename).name}.json'
@@ -34,6 +35,7 @@ def run_gs(mol:MolecularData, ham:Ham, config:Config) -> Tuple[QVM, float, Param
       except:
         print('>> cache file error')
         fp.unlink()
+  
   # Get the expectation and gradient calculating function: <ψ(λ0)|H|ψ(λ0)>
   gs_grad_ops = gs_sim.get_expectation_with_grad(ham, gs_circ)
 
@@ -42,12 +44,14 @@ def run_gs(mol:MolecularData, ham:Ham, config:Config) -> Tuple[QVM, float, Param
     f, g = grad_ops(x)
     f = np.squeeze(f)     # [1, 1] => []
     g = np.squeeze(g)     # [1, 1, 96] => [96]
+    if PEEK: print('gs:', f.real)
     return np.real(f), np.real(g)
   
   # Initialize amplitudes
-  init_amp = init_amp if init_amp is not None else np.random.random(len(gs_circ.all_paras)) - 0.5
+  if init_amp is None:
+    init_amp = np.random.random(len(gs_circ.all_paras)) - 0.5
   
-  # Get Optimized result: min. E0 = <ψ(λ0)|H|ψ(λ0)>
+  # Get optimized result
   gs_res = minimize(
     gs_func,
     init_amp,
@@ -67,7 +71,7 @@ def run_gs(mol:MolecularData, ham:Ham, config:Config) -> Tuple[QVM, float, Param
     with open(fp, 'w', encoding='utf-8') as fh:
       json.dump(gs_pr, fh, indent=2, ensure_ascii=False)
  
-  # Get energy
+  # Get energy, NOTE: evolve `gs_sim` to `gs_circ`
   gs_ene = run_expectaion(gs_sim, ham, gs_circ, gs_res.x)
 
   print('E0 energy:', gs_ene)
@@ -101,6 +105,7 @@ def run_es(mol:MolecularData, ham:Ham, gs_sim:QVM, config:Config, init_amp:ndarr
     punish_f = beta * np.abs(f1) ** 2
     # grad of reg term: `+ beta * (g1' * f1 + g1 * f1')`
     punish_g = beta * (np.conj(g1) * f1 + g1 * np.conj(f1))
+    if PEEK: print('es:', f0.real, 'ip:', f1.real)
     return np.real(f0 + punish_f), np.real(g0 + punish_g)
   
   # Initialize amplitudes

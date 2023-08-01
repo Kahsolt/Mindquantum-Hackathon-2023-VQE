@@ -9,6 +9,7 @@ from openfermion.chem import MolecularData
 
 from .ocvqe import ocqve_solver
 from .opocvqe import opocvqe_solver
+from .ssvqe import ssqve_solver
 from .wssvqe import wssqve_solver
 
 ANSATZS = [
@@ -76,6 +77,30 @@ def run_opocvqe(mol:MolecularData) -> float:
   return opocvqe_solver(mol, config)
 
 
+def run_ssvqe(mol:MolecularData) -> float:
+  config1 = {
+    'ansatz':     'HEA',
+    'rot_gates':  ['RX', 'RY', 'RX'],
+    'entgl_gate': 'X',
+    'depth':      12,
+    'optim':      'BFGS',
+    'tol':        1e-8,
+    'maxiter':    500,
+    'debug':      False,
+  }
+  config2 = {
+    'ansatz':     'HEA',
+    'rot_gates':  ['RX', 'RY', 'RX'],
+    'entgl_gate': 'X',
+    'depth':      8,
+    'optim':      'BFGS',
+    'tol':        1e-8,
+    'maxiter':    500,
+    'debug':      False,
+  }
+  return ssqve_solver(mol, config1, config2)
+
+
 def run_wssvqe(mol:MolecularData) -> float:
   config = {
     'ansatz':     'HEA',
@@ -84,7 +109,7 @@ def run_wssvqe(mol:MolecularData) -> float:
     'depth':      12,
     'optim':      'BFGS',
     'tol':        1e-8,
-    'w':          0.5,
+    'w':          0.1,
     'maxiter':    1000,
     'debug':      False,
   }
@@ -93,7 +118,8 @@ def run_wssvqe(mol:MolecularData) -> float:
 
 def excited_state_solver(mol:MolecularData) -> float:
   #algo = 'ocvqe'
-  algo = 'opocvqe'
+  #algo = 'opocvqe'
+  algo = 'ssvqe'
   #algo = 'wssvqe'
   return globals()[f'run_{algo}'](mol)
 
