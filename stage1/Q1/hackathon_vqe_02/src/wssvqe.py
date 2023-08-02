@@ -61,7 +61,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
   return f0, f1
 
 
-def wssqve_solver(mol:MolecularData, config:Config) -> float:
+def wssvqe_solver(mol:MolecularData, config:Config) -> float:
   ansatz: str = config['ansatz']
   ham = get_ham(mol, ansatz.endswith('QP'))
 

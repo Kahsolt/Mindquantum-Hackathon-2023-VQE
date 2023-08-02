@@ -135,7 +135,7 @@ def run_es(mol:MolecularData, ham:Ham, gs_sim:QVM, config:Config, init_amp:ndarr
   return es_ene
 
 
-def ocqve_solver(mol:MolecularData, config1:Config, config2:Config) -> float:
+def ocvqe_solver(mol:MolecularData, config1:Config, config2:Config) -> float:
   ansatz1: str = config1['ansatz']
   ham = get_ham(mol, ansatz1.endswith('QP'))
 

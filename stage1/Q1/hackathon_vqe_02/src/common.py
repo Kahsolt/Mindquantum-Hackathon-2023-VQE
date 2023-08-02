@@ -58,8 +58,8 @@ def get_ham(mol:MolecularData, is_fermi:bool=False) -> Ham:
 
   if DEBUG_HAM:
     mat = ham.hamiltonian.matrix().todense()
-    diag = np.diag(mat)
-    breakpoint()
+    diag = np.diag(mat).astype(np.float32)
+    np.save('ham.npy', diag)
 
   return ham
 
@@ -104,6 +104,8 @@ def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) 
 
   if DEBUG_ANSATZ:
     vqc.summary()
+    with open('circ.txt', 'w', encoding='utf-8') as fh:
+      fh.write(str(vqc))
 
   return vqc, init_amp
 

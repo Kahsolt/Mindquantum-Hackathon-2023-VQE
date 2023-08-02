@@ -7,10 +7,10 @@ sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(BASE_PATH))))
 
 from openfermion.chem import MolecularData
 
-from .ocvqe import ocqve_solver
+from .ocvqe import ocvqe_solver
 from .opocvqe import opocvqe_solver
-from .ssvqe import ssqve_solver
-from .wssvqe import wssqve_solver
+from .ssvqe import ssvqe_solver
+from .wssvqe import wssvqe_solver
 
 ANSATZS = [
   # mindquantum
@@ -50,7 +50,7 @@ def run_ocvqe(mol:MolecularData) -> float:
     'debug':   False,
     'cont_evolve': True,    # NOTE: trick
   }
-  return ocqve_solver(mol, config1, config2)
+  return ocvqe_solver(mol, config1, config2)
 
 
 def run_ocvqe_qp(mol:MolecularData) -> float:
@@ -72,7 +72,7 @@ def run_ocvqe_qp(mol:MolecularData) -> float:
     'debug':   False,
     'cont_evolve': False,    # NOTE: trick
   }
-  return ocqve_solver(mol, config1, config2)
+  return ocvqe_solver(mol, config1, config2)
 
 
 def run_opocvqe(mol:MolecularData) -> float:
@@ -131,7 +131,7 @@ def run_ssvqe(mol:MolecularData) -> float:
     'maxiter':    500,
     'debug':      False,
   }
-  return ssqve_solver(mol, config1, config2)
+  return ssvqe_solver(mol, config1, config2)
 
 
 def run_wssvqe(mol:MolecularData) -> float:
@@ -146,7 +146,7 @@ def run_wssvqe(mol:MolecularData) -> float:
     'maxiter':    1000,
     'debug':      False,
   }
-  return wssqve_solver(mol, config)
+  return wssvqe_solver(mol, config)
 
 
 def excited_state_solver(mol:MolecularData) -> float:
