@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(BASE_PATH))))
 
 from openfermion.chem import MolecularData
 
+from .vqe import vqe_solver, fsm_solver
 from .ocvqe import ocvqe_solver
 from .opocvqe import opocvqe_solver
 from .ssvqe import ssvqe_solver
@@ -29,85 +30,104 @@ OPTIMS = [
 ]
 
 
-def run_ocvqe(mol:MolecularData) -> float:
+def run_fsm(mol:MolecularData) -> float:
   config1 = {
     'ansatz':  'QUCC',
     'trotter': 2,
     'optim':   'BFGS',
     'tol':     1e-8,
-    'dump':    False,
-    'maxiter': 250,
-    'debug':   False,
-  }
-  config2 = {
-    'ansatz':  'QUCC',
-    'trotter': 2,
-    'optim':   'BFGS',
-    'tol':     1e-8,
-    'beta':    2,
-    'eps':     2e-6,
     'maxiter': 300,
-    'debug':   False,
-    'cont_evolve': True,    # NOTE: trick
   }
-  return ocvqe_solver(mol, config1, config2)
+  gs_ene = vqe_solver(mol, config1)
 
-
-def run_ocvqe_qp(mol:MolecularData) -> float:
-  config1 = {
-    'ansatz':  'UCCSD-QP',
-    'optim':   'BFGS',
-    'tol':     1e-9,
-    'dump':    False,
-    'maxiter': 100000,
-    'debug':   False,
-  }
   config2 = {
-    'ansatz':  'UCCSD-QP',
+    'ansatz':  'QUCC',
+    'trotter': 2,
+    'lmbd':    gs_ene,
     'optim':   'BFGS',
-    'tol':     1e-9,
-    'beta':    1000,
-    'eps':     2e-6,
-    'maxiter': 100000,
-    'debug':   False,
-    'cont_evolve': False,    # NOTE: trick
+    'tol':     1e-8,
+    'maxiter': 300,
   }
+  return fsm_solver(mol, config2)
+
+
+def run_ocvqe(mol:MolecularData) -> float:
+  lib = 'mq'
+  if lib == 'mq':
+    config1 = {
+      'ansatz':  'QUCC',
+      'trotter': 2,
+      'optim':   'BFGS',
+      'tol':     1e-8,
+      'dump':    False,
+      'maxiter': 250,
+    }
+    config2 = {
+      'ansatz':  'QUCC',
+      'trotter': 2,
+      'optim':   'BFGS',
+      'tol':     1e-8,
+      'beta':    2,
+      'eps':     2e-6,
+      'maxiter': 300,
+      'cont_evolve': True,
+    }
+  elif lib == 'qp':
+    config1 = {
+      'ansatz':  'UCCSD-QP',
+      'optim':   'BFGS',
+      'tol':     1e-9,
+      'dump':    False,
+      'maxiter': 100000,
+    }
+    config2 = {
+      'ansatz':  'UCCSD-QP',
+      'optim':   'BFGS',
+      'tol':     1e-9,
+      'beta':    1000,
+      'eps':     2e-6,
+      'maxiter': 100000,
+      'cont_evolve': False,
+    }
   return ocvqe_solver(mol, config1, config2)
 
 
 def run_opocvqe(mol:MolecularData) -> float:
-  config1 = {
-    'ansatz':  'QUCC',
-    'trotter': 1,
-    'opt':     'scipy',
-    'optims': [
-      {
-        'optim':   'CG',    # this is fast on converge 
-        'tol':     1e-3,
-        'beta':    10,
-        'w':       0.2,
-        'maxiter': 100,
-      },
-      {
-        'optim':   'BFGS',  # this is accurate
-        'tol':     1e-5,
-        'beta':    100,
-        'w':       0.1,
-        'maxiter': 1000,
-      },
-    ]
-  }
-  config2 = {
-    'ansatz':  'QUCC',
-    'trotter': 1,
-    'opt':     'mindspore',
-    'optim':   'Adagrad',
-    'lr':      0.15,
-    'beta':    100,
-    'w':       0.1,
-    'maxiter': 1000,
-  }
-  return opocvqe_solver(mol, config1)
+  opt = 'sp'
+  if opt == 'sp':
+    config = {
+      'ansatz':  'QUCC',
+      'trotter': 1,
+      'opt':     'scipy',
+      'optims': [
+        {
+          'optim':   'CG',    # this is fast on converge 
+          'tol':     1e-3,
+          'beta':    10,
+          'w':       0.2,
+          'maxiter': 100,
+        },
+        {
+          'optim':   'BFGS',  # this is accurate
+          'tol':     1e-5,
+          'beta':    100,
+          'w':       0.1,
+          'maxiter': 1000,
+        },
+      ]
+    }
+  elif opt == 'mq':
+    config = {
+      'ansatz':  'QUCC',
+      'trotter': 2,
+      'opt':     'mindspore',
+      'optim':   'Adagrad',
+      'lr':      0.15,
+      'beta':    100,
+      'w':       0.1,
+      'maxiter': 1000,
+    }
+  return opocvqe_solver(mol, config)
 
 
 def run_ssvqe(mol:MolecularData) -> float:
@@ -119,17 +139,15 @@ def run_ssvqe(mol:MolecularData) -> float:
     'optim':      'BFGS',
     'tol':        1e-8,
     'maxiter':    500,
-    'debug':      False,
   }
   config2 = {
     'ansatz':     'HEA',
     'rot_gates':  ['RX', 'RY', 'RX'],
     'entgl_gate': 'X',
-    'depth':      8,
+    'depth':      12,
     'optim':      'BFGS',
     'tol':        1e-8,
     'maxiter':    500,
-    'debug':      False,
   }
   return ssvqe_solver(mol, config1, config2)
 
@@ -144,15 +162,14 @@ def run_wssvqe(mol:MolecularData) -> float:
     'tol':        1e-8,
     'w':          0.1,
     'maxiter':    1000,
-    'debug':      False,
   }
   return wssvqe_solver(mol, config)
 
 
 def excited_state_solver(mol:MolecularData) -> float:
+  #algo = 'fsm'
   #algo = 'ocvqe'
-  algo = 'ocvqe_qp'
-  #algo = 'opocvqe'
+  algo = 'opocvqe'
   #algo = 'ssvqe'
   #algo = 'wssvqe'
   return globals()[f'run_{algo}'](mol)

@@ -5,18 +5,13 @@
 # implementation of weighted SS-VQE in "Subspace-search variational quantum eigensolver for excited states"
 
 from .common import *
-from .ssvqe import get_ortho_circuits
 
 
 def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
   # Declare the simulator
-  if isinstance(ham, ESConserveHam):
-    sim = ESConservation(mol.n_qubits, mol.n_electrons)
-  else:
-    sim = Simulator('mqvector', mol.n_qubits)
-  
+  sim = get_sim(mol, ham)
   # Construct encoding circ for preparing orthogonal init state |ψj>
-  q0_enc, q1_enc = get_ortho_circuits()
+  q0_enc, q1_enc = get_encoder_ortho()
   # Construct U ansatz circuit: U|ψj>
   ansatz, init_amp = get_ansatz(mol, config['ansatz'], config, no_hfw=True)
   # Full circuit
@@ -27,37 +22,24 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
   q1_grad_ops = sim.get_expectation_with_grad(ham, q1_circ)
 
   # Define the objective function to be minimized
-  def func(x:ndarray, q0_grad_ops:Callable, q1_grad_ops:Callable, w:float) -> Tuple[float, ndarray]:
+  def func(x:ndarray, q0_grad_ops:Callable, q1_grad_ops:Callable, hparam:Config) -> Tuple[float, ndarray]:
+    w: float = hparam['w']
     f0, g0 = q0_grad_ops(x)
     f1, g1 = q1_grad_ops(x)
     f0, f1, g0, g1 = [np.squeeze(x) for x in [f0, f1, g0, g1]]
     if PEEK: print('gs:', f0.real, 'es:', f1.real)
     return np.real(f0 + w * f1), np.real(g0 + w * g1)
   
-  # Initialize amplitudes
-  if init_amp is None:
-    init_amp = np.random.random(len(ansatz.all_paras)) - 0.5
-  
   # Get optimized result
-  res = minimize(
-    func,
-    init_amp,
-    args=(q0_grad_ops, q1_grad_ops, config['w']),
-    method=config['optim'],
-    jac=True,
-    tol=config['tol'],
-    options={
-      'maxiter': config['maxiter'], 
-      'disp': config.get('debug', False),
-    },
-  )
+  params = optim_scipy(func, init_amp, (q0_grad_ops, q1_grad_ops,), config)
 
   # Get the energies
-  sim.reset() ; f0 = run_expectaion(sim, ham, q0_circ, res.x)
-  sim.reset() ; f1 = run_expectaion(sim, ham, q1_circ, res.x)
+  sim.reset() ; f0 = run_expectaion(sim, ham, q0_circ, params)
+  sim.reset() ; f1 = run_expectaion(sim, ham, q1_circ, params)
 
-  print('E0 energy:', f0)
-  print('E1 energy:', f1)
+  if PEEK:
+    print('E0 energy:', f0)
+    print('E1 energy:', f1)
   return f0, f1
 
 
@@ -67,6 +49,6 @@ def wssvqe_solver(mol:MolecularData, config:Config) -> float:
 
   # Find the lowest two energies by min. U|φ0> + w*U|φ1>, sat. <φ0|φ1> = 0
   assert 0.0 < config['w'] < 1.0
-  gs_ene, es_ene = run(mol, ham, config)
+  _, es_ene = run(mol, ham, config)
 
   return es_ene

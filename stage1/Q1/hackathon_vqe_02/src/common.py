@@ -3,12 +3,17 @@
 # Create Time: 2023/07/19 
 
 import os
+import tempfile
 from pathlib import Path
 from typing import Callable, Any, Union, List, Tuple, Dict
 
 import numpy as np
 from numpy import ndarray
 from scipy.optimize import minimize
+import mindspore as ms
+ms.context.set_context(mode=ms.context.PYNATIVE_MODE, device_target="CPU")
+import mindspore.nn as nn
+from mindquantum.framework import MQAnsatzOnlyLayer
 from openfermion.chem import MolecularData
 from mindquantum.core.gates import H, X, Y, Z, RX, RY, RZ
 from mindquantum.core.circuit import Circuit, UN
@@ -27,12 +32,11 @@ from mindquantum.algorithm.nisq.chem import (
 from qupack.vqe import ESConservation, ESConserveHam, ExpmPQRSFermionGate
 ESConservation._check_qubits_max = lambda *args, **kwargs: None   # monkey-patching avoid FileNotFoundError
 
-BASE_PATH = Path(__file__).parent
-CACHE_PATH = BASE_PATH / '.cache' ; CACHE_PATH.mkdir(exist_ok=True)
+CACHE_PATH = Path(tempfile.gettempdir())
 
-PEEK = os.environ.get('peek', False)
-DEBUG_HAM = os.environ.get('debug_ham', False)
-DEBUG_ANSATZ = os.environ.get('debug_ansatz', False)
+PEEK         = os.environ.get('PEEK',         False)
+DEBUG_HAM    = os.environ.get('DEBUG_HAM',    False)
+DEBUG_ANSATZ = os.environ.get('DEBUG_ANSATZ', False)
 
 Ham = Union[Hamiltonian, ESConserveHam]
 QVM = Union[Simulator, ESConservation]
@@ -53,7 +57,7 @@ def get_ham(mol:MolecularData, is_fermi:bool=False) -> Ham:
     inter_ops = InteractionOperator(*ham_of.n_body_tensors.values())
     ham_hiq = FermionOperator(inter_ops)
     ham_qo = Transform(ham_hiq).jordan_wigner()   # fermi => pauli
-    ham_op = ham_qo.real      # FIXME: why discard imag part?
+    ham_op = ham_qo.real          # FIXME: why discard imag part?
     ham = Hamiltonian(ham_op)     # ham of a QubitOperator
 
   if DEBUG_HAM:
@@ -64,7 +68,15 @@ def get_ham(mol:MolecularData, is_fermi:bool=False) -> Ham:
   return ham
 
 
-def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) -> Tuple[Circuit, List[float]]:
+def get_encoder_ortho() -> Tuple[Circuit, Circuit]:
+  q0 = Circuit()
+  q0 += X.on(0)
+  q1 = Circuit()
+  q1 += X.on(1)
+  return q0, q1
+
+
+def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) -> Tuple[Circuit, Params]:
   # Construct hartreefock wave function circuit: |0...> -> |1...>
   # NOTE: this flip is important though do not know why; H does not work
   if not no_hfw:
@@ -83,7 +95,7 @@ def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) 
       ucc_qubit_ops = Transform(ucc_fermion_ops).jordan_wigner()
       ansatz_circuit = TimeEvolution(ucc_qubit_ops.imag).circuit    # ucc_qubit_ops 中已经包含了复数因子 i 
       init_amp_ccsd = uccsd_singlet_get_packed_amplitudes(mol.ccsd_single_amps, mol.ccsd_double_amps, mol.n_qubits, mol.n_electrons)
-      init_amp = [init_amp_ccsd[i] for i in ansatz_circuit.params_name]
+      init_amp = np.asarray([init_amp_ccsd[i] for i in ansatz_circuit.params_name])
   elif ansatz == 'UCCSD-QP':
     ucc_fermion_ops = uccsd_singlet_generator(mol.n_qubits, mol.n_electrons, anti_hermitian=False)
     circ = Circuit()
@@ -107,7 +119,27 @@ def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) 
     with open('circ.txt', 'w', encoding='utf-8') as fh:
       fh.write(str(vqc))
 
+  if init_amp is None:
+    init_amp = init_randu(len(vqc.all_paras))
+
   return vqc, init_amp
+
+
+def get_sim(mol:MolecularData, ham:Ham, ret_null_ham:bool=False) -> Union[QVM, Tuple[QVM, Ham]]:
+  if isinstance(ham, ESConserveHam):
+    sim = ESConservation(mol.n_qubits, mol.n_electrons)
+    if ret_null_ham:
+      HAM_NULL = ESConserveHam(FermionOperator(''))
+  else:
+    sim = Simulator('mqvector', mol.n_qubits)
+    if ret_null_ham:
+      HAM_NULL = Hamiltonian(QubitOperator(''))
+  return (sim, HAM_NULL) if ret_null_ham else sim
+
+
+def init_randu(len:int, sub:float=0.5, mul:float=0.5):
+  ''' default uniform on [-0.25, 0.25] '''
+  return (np.random.random(len) - sub) * mul
 
 
 def run_expectaion(sim:QVM, ham:Ham, circ:Circuit, params:ndarray) -> float:
@@ -127,3 +159,32 @@ def run_expectaion(sim:QVM, ham:Ham, circ:Circuit, params:ndarray) -> float:
       E = (qs1 @ H @ qs1)
 
   return E.real
+
+
+def optim_scipy(func:Callable, init_x:ndarray, grad_ops:Tuple[Callable, ...], config:Config) -> ndarray:
+  optim_plans: List[Config] = config.get('optims', [config])
+  for i, cfg in enumerate(optim_plans):
+    optim = cfg.get('optim', 'BFGS')
+    print(f'[{i+1}/{len(optim_plans)}] optim: {optim}')
+    res = minimize(
+      func,
+      init_x,
+      args=tuple([*grad_ops, cfg]),
+      method=optim,
+      jac=True,
+      tol=cfg.get('tol', 1e-6),
+      options={
+        'maxiter': cfg.get('maxiter', 1000), 
+        'disp': cfg.get('debug', False),
+      },
+    )
+    init_x = res.x
+  return np.asarray(res.x, dtype=np.float32)
+
+
+def optim_mindspore(pqc:MQAnsatzOnlyLayer, config:Config) -> ndarray:
+  optim_cls = getattr(nn.optim, config.get('optim', 'Adagrad'))
+  optimizer = optim_cls(pqc.trainable_params(), learning_rate=config.get('lr', 4e-2))
+  train_pqc = nn.TrainOneStepCell(pqc, optimizer)
+  for _ in range(config.get('maxiter', 1000)): train_pqc()
+  return np.asarray(pqc.weight, dtype=np.float32)

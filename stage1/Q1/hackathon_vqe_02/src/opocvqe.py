@@ -5,9 +5,7 @@
 # implementation of one-pass OC-VQE, combining OC-VQE and SS-VQE
 
 from .common import *
-import mindspore as ms
-ms.context.set_context(mode=ms.context.PYNATIVE_MODE, device_target="CPU")
-import mindspore.nn as nn
+
 from mindspore.common.parameter import Parameter
 from mindquantum.framework import MQAnsatzOnlyLayer
 from mindquantum.simulator.utils import GradOpsWrapper
@@ -33,7 +31,7 @@ def grad_ops_hijack(
   # gs, es
   inputs0, inputs1 = inputs
 
-  if not 'check <phi0|phi1>':
+  if not 'check <φ0|φ1>':
     qs0 = circ_left .get_qs(pr=inputs0)
     qs1 = circ_right.get_qs(pr=inputs1)
     ip = qs0 @ qs1
@@ -67,56 +65,31 @@ def grad_ops_hijack(
 # ↑↑↑ mindquantum/simulator/mqsim.py ↑↑↑
 
 
-def optim_scipy(func:Callable, init_amp:np.ndarray, grad_ops:Tuple[Callable], config:Config) -> List[float]:
-  n_round = len(config['optims'])
-  for i, optim in enumerate(config['optims']):
-    print(f'[{i+1}/{n_round}] {optim["optim"]}')
-    res = minimize(
-      func,
-      init_amp,
-      args=tuple([*grad_ops, optim['beta'], optim['w']]),
-      method=optim['optim'],
-      jac=True,
-      tol=optim['tol'],
-      options={
-        'maxiter': optim['maxiter'], 
-        'disp': optim.get('debug', False),
-      },
-    )
-    init_amp = res.x
-  return res.x
-
-
-def optim_mindspore(pqc:MQAnsatzOnlyLayer, config:Config) -> ndarray:
-  optim_cls = getattr(nn.optim, config['optim'])
-  optimizer = optim_cls(pqc.trainable_params(), learning_rate=config['lr'])
-  train_pqc = nn.TrainOneStepCell(pqc, optimizer)
-  for _ in range(config['maxiter']): train_pqc()
-  return np.asarray(pqc.weight.data, dtype=np.float32)
-
-
 def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
   # Declare the simulator
-  if isinstance(ham, ESConserveHam):
-    sim = ESConservation(mol.n_qubits, mol.n_electrons)
-    HAM_NULL = ESConserveHam(FermionOperator(''))
-  else:
-    sim = Simulator('mqvector', mol.n_qubits)
-    HAM_NULL = Hamiltonian(QubitOperator(''))
+  sim, HAM_NULL = get_sim(mol, ham, ret_null_ham=True)
 
   # Construct state ansatz circuit: |ψ(λj)>
   gs_circ, init_amp0 = get_ansatz(mol, config['ansatz'], config)
   es_circ, init_amp1 = get_ansatz(mol, config['ansatz'], config)
   gs_circ = add_prefix(gs_circ, 'gs') ; len_gs = len(gs_circ.all_paras)
   es_circ = add_prefix(es_circ, 'es') ; len_es = len(es_circ.all_paras)
+
+  # Initialize amplitudes
+  if init_amp0 is not None and init_amp1 is not None:
+    init_amp = np.concatenate([init_amp0, init_amp1], axis=0)
+  else:
+    init_amp = init_randu(len_gs + len_es)
+
   # Get the expectation and gradient calculating function: <ψ(λj)|H|ψ(λj)>
   gs_grad_ops = sim.get_expectation_with_grad(ham, gs_circ)
   es_grad_ops = sim.get_expectation_with_grad(ham, es_circ)
   ip_grad_ops = lambda *inputs: grad_ops_hijack(sim.backend, [HAM_NULL], gs_circ, es_circ, *inputs)
   
   # Define the objective function to be minimized
-  def func(x:ndarray, gs_grad_ops:Callable, es_grad_ops:Callable, ip_grad_ops:Callable, beta:float, w:float) -> Tuple[float, ndarray]:
-    global punish_f
+  def func(x:ndarray, gs_grad_ops:Callable, es_grad_ops:Callable, ip_grad_ops:Callable, hparams:Config) -> Tuple[float, ndarray]:
+    beta: float = hparams['beta']
+    w:    float = hparams['w']
     
     x0 = x[:len_gs]
     x1 = x[-len_es:]
@@ -126,6 +99,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
     f_sum = f0 + w * f1
     g_cat = np.concatenate([g0, w * g1], axis=0)
 
+    global punish_f
     f_, g_ = ip_grad_ops(x0, x1)
     punish_f = beta * np.abs(f_) ** 2
     punish_g = beta * (np.conj(g_) * f_ + g_ * np.conj(f_))
@@ -133,19 +107,14 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
     if PEEK: print('gs:', f0.real, 'es:', f1.real, 'reg:', punish_f)
     return np.real(f_sum + punish_f), np.real(g_cat + punish_g)
 
-  # Initialize amplitudes
-  if init_amp0 is not None and init_amp1 is not None:
-    init_amp = init_amp0 + init_amp1
-  else:
-    init_amp = np.random.random(len_gs + len_es) - 0.5
-
   # Get optimized result
-  if config['opt'] == 'scipy':
+  opt = config.get('opt', 'scipy')
+  if opt == 'scipy':
     params = optim_scipy(func, init_amp, (gs_grad_ops, es_grad_ops, ip_grad_ops), config)
   
-  elif config['opt'] == 'mindspore':
+  elif opt == 'mindspore':
     def grad_ops(x):
-      f, g = func(x, gs_grad_ops, es_grad_ops, ip_grad_ops, config['beta'], config['w'])
+      f, g = func(x, gs_grad_ops, es_grad_ops, ip_grad_ops, config)
       f = np.expand_dims(np.expand_dims(f, 0), 0)
       g = g[None, None, :]
       return f, g
@@ -164,14 +133,16 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
     pqc.weight = Parameter(ms.Tensor(init_amp, pqc.weight.dtype))
     params = optim_mindspore(pqc, config)
   
-  else: raise ValueError(f'unknown optim lib: {config["opt"]}')
+  else: raise ValueError(f'unknown optim lib: {opt}')
 
   # Get the energyies
   sim.reset() ; f0 = run_expectaion(sim, ham, gs_circ, params[:len_gs])
   sim.reset() ; f1 = run_expectaion(sim, ham, es_circ, params[-len_es:])
   
-  print('E0 energy:', f0)
-  print('E1 energy:', f1)
+  if PEEK:
+    print('E0 energy:', f0)
+    print('E1 energy:', f1)
+    print('reg_term:', punish_f)
   return f0, f1
 
 
@@ -186,7 +157,5 @@ def opocvqe_solver(mol:MolecularData, config:Config) -> float:
   else:
     assert 0.0 < config['w'] < 1.0
   gs_ene, es_ene = run(mol, ham, config)
-
-  print('reg_term:', punish_f)
 
   return es_ene
