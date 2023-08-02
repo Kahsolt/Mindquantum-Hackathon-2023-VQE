@@ -44,7 +44,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[QVM, float, Params]:
 
   # Make params cache
   if config.get('dump', False):
-    pr = dict(zip(circ.params_name, params))
+    pr = dict(zip(circ.params_name, params.tolist()))
     with open(fp, 'w', encoding='utf-8') as fh:
       json.dump(pr, fh, indent=2, ensure_ascii=False)
  

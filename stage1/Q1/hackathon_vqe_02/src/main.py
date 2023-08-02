@@ -56,11 +56,11 @@ def run_ocvqe(mol:MolecularData) -> float:
   if lib == 'mq':
     config1 = {
       'ansatz':  'QUCC',
-      'trotter': 2,
+      'trotter': 1,
       'optim':   'BFGS',
-      'tol':     1e-8,
+      'tol':     1e-6,
       'dump':    False,
-      'maxiter': 250,
+      'maxiter': 200,
     }
     config2 = {
       'ansatz':  'QUCC',
@@ -70,7 +70,7 @@ def run_ocvqe(mol:MolecularData) -> float:
       'beta':    2,
       'eps':     2e-6,
       'maxiter': 300,
-      'cont_evolve': True,
+      'cont_evolve': False,
     }
   elif lib == 'qp':
     config1 = {
@@ -168,8 +168,8 @@ def run_wssvqe(mol:MolecularData) -> float:
 
 def excited_state_solver(mol:MolecularData) -> float:
   #algo = 'fsm'
-  #algo = 'ocvqe'
-  algo = 'opocvqe'
+  algo = 'ocvqe'
+  #algo = 'opocvqe'
   #algo = 'ssvqe'
   #algo = 'wssvqe'
   return globals()[f'run_{algo}'](mol)
