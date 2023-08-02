@@ -33,22 +33,20 @@ OPTIMS = [
 def run_fsm(mol:MolecularData) -> float:
   config1 = {
     'ansatz':  'QUCC',
-    'trotter': 2,
+    'trotter': 1,
     'optim':   'BFGS',
-    'tol':     1e-8,
-    'maxiter': 300,
+    'tol':     1e-6,
+    'maxiter': 200,
+    'dump':    True,
   }
-  gs_ene = vqe_solver(mol, config1)
-
   config2 = {
     'ansatz':  'QUCC',
     'trotter': 2,
-    'lmbd':    gs_ene,
     'optim':   'BFGS',
     'tol':     1e-8,
     'maxiter': 300,
   }
-  return fsm_solver(mol, config2)
+  return fsm_solver(mol, config1, config2)
 
 
 def run_ocvqe(mol:MolecularData) -> float:
@@ -59,8 +57,8 @@ def run_ocvqe(mol:MolecularData) -> float:
       'trotter': 1,
       'optim':   'BFGS',
       'tol':     1e-6,
-      'dump':    False,
       'maxiter': 200,
+      'dump':    True,
     }
     config2 = {
       'ansatz':  'QUCC',
@@ -77,8 +75,8 @@ def run_ocvqe(mol:MolecularData) -> float:
       'ansatz':  'UCCSD-QP',
       'optim':   'BFGS',
       'tol':     1e-9,
-      'dump':    False,
       'maxiter': 100000,
+      'dump':    True,
     }
     config2 = {
       'ansatz':  'UCCSD-QP',

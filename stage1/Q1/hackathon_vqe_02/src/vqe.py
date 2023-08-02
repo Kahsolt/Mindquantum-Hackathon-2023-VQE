@@ -4,7 +4,6 @@
 
 # implementation of original VQE and FSM in "A variational eigenvalue solver on a quantum processor"
 
-import json
 from .common import *
 
 
@@ -16,16 +15,16 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[QVM, float, Params]:
 
   # Load cached params if exists
   if config.get('dump', False):
-    fp = CACHE_PATH / f'vqe-{config["ansatz"]}-{Path(mol.filename).name}.json'
+    fp = CACHE_PATH / f'vqe-{config["ansatz"]}-{Path(mol.filename).name}.npy'
     if fp.exists():
       print('>> try using cached E0 states')
       try:
-        with open(fp, 'r', encoding='utf-8') as fh:
-          pr = json.load(fh)
-        ene = run_expectaion(sim, circ, pr)
+        params = np.load(fp)
+        ene = run_expectaion(sim, ham, circ, params)
         print('E0 energy:', ene)
-        return sim, ene, np.asarray(list(pr.values()))
+        return sim, ene, params
       except:
+        print_exc()
         print('>> cache file error')
         fp.unlink()
   
@@ -44,9 +43,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[QVM, float, Params]:
 
   # Make params cache
   if config.get('dump', False):
-    pr = dict(zip(circ.params_name, params.tolist()))
-    with open(fp, 'w', encoding='utf-8') as fh:
-      json.dump(pr, fh, indent=2, ensure_ascii=False)
+    np.save(fp, params)
  
   # Get energy, evolve `sim` to `circ`
   ene = run_expectaion(sim, ham, circ, params)
@@ -65,17 +62,23 @@ def vqe_solver(mol:MolecularData, config:Config) -> float:
   return gs_ene
 
 
-def fsm_solver(mol:MolecularData, config:Config) -> float:
+def fsm_solver(mol:MolecularData, config1:Config, config2:Config) -> float:
   ''' NOTE: 已知 特征值λ(能量) 求 特征向量(态) '''
 
-  ansatz: str = config['ansatz']
+  ansatz: str = config1['ansatz']
   ham = get_ham(mol, ansatz.endswith('QP'))
 
+  # Ground state E0: |ψ(λ0)>
+  gs_ene = vqe_solver(mol, config1)
+
+  # Guess a E1 larger than E0
+  lmbd1 = gs_ene + 0.1
+
   # Make folded spectrum: |H-λ|^2
-  # TODO: how to do this
-  ham_hat = (ham - config['lmbd']) ** 2
+  ham_hat = type(ham)((ham.hamiltonian - QubitOperator('') * lmbd1) ** 2)
+  es_sim, _, _ = run(mol, ham_hat, config2)
 
   # Excited state Ek: |ψ(λk)>
-  _, es_ene, _ = run(mol, ham_hat, config)
+  es_ene = run_expectaion(es_sim, ham, Circuit(), [])
 
-  return es_ene
+  return gs_ene - es_ene

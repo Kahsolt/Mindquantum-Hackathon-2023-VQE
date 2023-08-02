@@ -6,6 +6,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Callable, Any, Union, List, Tuple, Dict
+from traceback import print_exc
 
 import numpy as np
 from numpy import ndarray

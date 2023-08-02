@@ -17,7 +17,7 @@ def run_es(mol:MolecularData, ham:Ham, gs_sim:QVM, config:Config, init_params:nd
   # Construct excited state ansatz circuit: |ψ(λ1)>
   es_circ, init_amp = get_ansatz(mol, config['ansatz'], config)
   # Initialize amplitudes
-  if config['cont_evolve'] and init_params is not None and len(init_params) == len(es_circ.all_paras):
+  if config.get('cont_evolve', False) and init_params is not None and len(init_params) == len(es_circ.all_paras):
     init_amp = init_params + init_randu(init_params.shape, mul=1e-3)
 
   # Get the expectation and gradient calculating function: <ψ(λ1)|H|ψ(λ1)>
