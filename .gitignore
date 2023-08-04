@@ -6,6 +6,9 @@ __pycache__/
 thesis/*
 !thesis/.cmd
 
+# 3rd repos
+repo/
+
 # python packages for method stub lookup :)
 lib/*
 

@@ -195,6 +195,9 @@ Loss: 通常是最小化一个可观测量期望值 <psi|H|psi>
 
 ### references
 
+- pre contest
+  - [第一期 · 2022量子算法难题挑战赛](https://competition.huaweicloud.com/information/1000041745/introduction)
+  - [第一期 · 2022量子算法难题挑战赛 solution 归档](https://gitee.com/mindspore/mindquantum/tree/research/challenges/2022)
 - thesis
   - [A variational eigenvalue solver on a quantum processor](https://arxiv.org/abs/1304.3061)
   - [Variational Quantum Computation of Excited States](https://arxiv.org/abs/1805.08138)
