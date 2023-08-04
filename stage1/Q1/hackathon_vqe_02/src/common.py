@@ -32,7 +32,8 @@ from mindquantum.algorithm.nisq.chem import (
 from qupack.vqe import ESConservation, ESConserveHam, ExpmPQRSFermionGate
 ESConservation._check_qubits_max = lambda *args, **kwargs: None   # monkey-patching avoid FileNotFoundError
 
-from src.hijack import QubitUCCAnsatz_hijack
+from src.hijack.QubitUCCAnsatz_hijack import QubitUCCAnsatz_hijack
+from src.hijack.uccsd_singlet_generator_hijack import uccsd_singlet_generator_hijack
 
 CACHE_PATH = Path(tempfile.gettempdir())
 
@@ -69,7 +70,7 @@ def get_ham(mol:MolecularData, config:Config) -> Ham:
   n_terms_approx = len(ham_hiq)
   print(f'n_terms: {n_terms} => {n_terms_approx}')
 
-  if config['ansatz'].endswith('QP'):
+  if 'QP' in config['ansatz']:
     ham_fo = normal_ordered(ham_hiq)
     ham_op = ham_fo.real
     ham = ESConserveHam(ham_op)   # ham of a FermionOperator
@@ -127,6 +128,9 @@ def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) 
     circ = Circuit()
     # H2O: 170 gates, 65 parameters
     for term in ucc_fermion_ops: circ += ExpmPQRSFermionGate(term)
+  elif ansatz == 'UCCSD-QP-hijack':
+    # H2O: 170*k gates, 65*k parameters
+    circ = uccsd_singlet_generator_hijack(mol.n_qubits, mol.n_electrons, anti_hermitian=False, n_trotter=config['trotter'])
   elif ansatz == 'HEA':
     rot_gates = [globals()[g] for g in config['rot_gates']]
     entgl_gate = globals()[config['entgl_gate']]
@@ -134,7 +138,7 @@ def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) 
   else:
     raise ValueError(f'unknown ansatz: {ansatz}')
 
-  if ansatz == 'UCCSD-QP':
+  if ansatz.startswith('UCCSD-QP'):
     vqc = circ
   elif no_hfw:
     vqc = ansatz_circuit

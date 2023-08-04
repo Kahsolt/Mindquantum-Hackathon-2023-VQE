@@ -22,35 +22,35 @@ iters  = 1000
 
 👉 within precision error, running the faster the better
 
-> best score: 275.5122 (stage1) / 89.0062 (stage2)
+> best score: 275.5122 (stage1) / [mq] 89.0062 | [qp] 71.1257 (stage2)
 
 ```python
-runner = ocvqe
+runner = ocvqe + qupack + hijack
 
 config1 = {
   # circ
-  'ansatz':  'QUCC',
-  'trotter': 1,
+  'ansatz':  'UCCSD-QP-hijack',
+  'trotter': 2,
   # optim
   'optim':   'BFGS',
-  'tol':     1e-3,
-  'maxiter': 100,
-  'dump':    True,
+  'tol':     1e-4,
+  'maxiter': 500,
+  'dump':    False,
   # ham
-  'round_one': 6,
-  'round_two': 6,
-  'trunc_one': 0.001,
-  'trunc_two': 0.002,
-  'compress':  4e-3,
+  #'round_one': 6,
+  #'round_two': 6,
+  #'trunc_one': 0.001,
+  #'trunc_two': 0.002,
+  #'compress':  1e-5,
 }
 config2 = {
-  'ansatz':  'QUCC',
-  'trotter': 2,
+  'ansatz':  f'UCCSD-QP-hijack',
+  'trotter': 4,
   'optim':   'BFGS',
-  'tol':     1e-3,
-  'beta':    2,
-  'eps':     2e-6,
-  'maxiter': 300,
+  'tol':     1e-4,
+  'beta':    4,
+  'eps':     1e-5,
+  'maxiter': 1000,
   'cont_evolve': False,
 }
 ```
