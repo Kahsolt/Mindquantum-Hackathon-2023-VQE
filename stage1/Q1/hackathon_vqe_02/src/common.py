@@ -32,6 +32,8 @@ from mindquantum.algorithm.nisq.chem import (
 from qupack.vqe import ESConservation, ESConserveHam, ExpmPQRSFermionGate
 ESConservation._check_qubits_max = lambda *args, **kwargs: None   # monkey-patching avoid FileNotFoundError
 
+from src.hijack import QubitUCCAnsatz_hijack
+
 CACHE_PATH = Path(tempfile.gettempdir())
 
 PEEK         = os.environ.get('PEEK',         False)
@@ -100,21 +102,30 @@ def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) 
 
   init_amp = None
   if ansatz == 'UCC':
+    # H2O: 1000/25080 gates, 65 parameters
     ansatz_circuit = UCCAnsatz(mol.n_qubits, mol.n_electrons, trotter_step=config['trotter']).circuit
   elif ansatz == 'QUCC':
+    # H2O: 310/3090 gates, 310 parameters
     ansatz_circuit = QubitUCCAnsatz(mol.n_qubits, mol.n_electrons, trotter_step=config['trotter']).circuit
+  elif ansatz == 'QUCC-hijack':
+    ansatz_circuit = QubitUCCAnsatz_hijack(mol.n_qubits, mol.n_electrons, trotter_step=config['trotter']).circuit
   elif ansatz == 'UCCSD':
+    # H2O: 1000/25080 gates, 65 parameters
     if not 'sugar':
       ansatz_circuit, init_amp, _, _, _, _ = generate_uccsd(mol, threshold=config['thresh'])
     else:
+      # H2O: 170 terms
       ucc_fermion_ops = uccsd_singlet_generator(mol.n_qubits, mol.n_electrons, anti_hermitian=True)
+      # H2O: 2000 terms
       ucc_qubit_ops = Transform(ucc_fermion_ops).jordan_wigner()
       ansatz_circuit = TimeEvolution(ucc_qubit_ops.imag).circuit    # ucc_qubit_ops 中已经包含了复数因子 i 
       init_amp_ccsd = uccsd_singlet_get_packed_amplitudes(mol.ccsd_single_amps, mol.ccsd_double_amps, mol.n_qubits, mol.n_electrons)
       init_amp = np.asarray([init_amp_ccsd[i] for i in ansatz_circuit.params_name])
   elif ansatz == 'UCCSD-QP':
+    # H2O: 170 terms
     ucc_fermion_ops = uccsd_singlet_generator(mol.n_qubits, mol.n_electrons, anti_hermitian=False)
     circ = Circuit()
+    # H2O: 170 gates, 65 parameters
     for term in ucc_fermion_ops: circ += ExpmPQRSFermionGate(term)
   elif ansatz == 'HEA':
     rot_gates = [globals()[g] for g in config['rot_gates']]
