@@ -64,7 +64,7 @@ def run_ocvqe(mol:MolecularData) -> float:
       'ansatz':  'QUCC',
       'trotter': 2,
       'optim':   'BFGS',
-      'tol':     1e-4,
+      'tol':     1e-3,
       'beta':    2,
       'eps':     2e-6,
       'maxiter': 300,

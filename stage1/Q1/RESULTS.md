@@ -22,7 +22,7 @@ iters  = 1000
 
 👉 within precision error, running the faster the better
 
-> best score: 275.5122 (stage1) / 164.2961 (stage2)
+> best score: 275.5122 (stage1) / 102.8464 (stage2)
 
 ```python
 runner = ocvqe
@@ -39,7 +39,7 @@ config2 = {
   'ansatz':  'QUCC',
   'trotter': 2,
   'optim':   'BFGS',
-  'tol':     1e-4,
+  'tol':     1e-3,
   'beta':    2,
   'eps':     2e-6,
   'maxiter': 300,
