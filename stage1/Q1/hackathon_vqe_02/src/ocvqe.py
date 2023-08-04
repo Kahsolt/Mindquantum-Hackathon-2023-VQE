@@ -53,8 +53,7 @@ def run_es(mol:MolecularData, ham:Ham, gs_sim:QVM, config:Config, init_params:nd
 
 
 def ocvqe_solver(mol:MolecularData, config1:Config, config2:Config) -> float:
-  ansatz: str = config1['ansatz']
-  ham = get_ham(mol, ansatz.endswith('QP'))
+  ham = get_ham(mol, config1)
 
   # Ground state E0: |ψ(λ0)>
   gs_sim, gs_ene, params = run_gs(mol, ham, config1)

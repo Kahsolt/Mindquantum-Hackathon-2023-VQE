@@ -53,12 +53,20 @@ def run_ocvqe(mol:MolecularData) -> float:
   lib = 'mq'
   if lib == 'mq':
     config1 = {
+      # circ
       'ansatz':  'QUCC',
       'trotter': 1,
+      # optim
       'optim':   'BFGS',
       'tol':     1e-3,
       'maxiter': 100,
-      'dump':    False,
+      'dump':    True,
+      # ham
+      'round_one': 6,
+      'round_two': 6,
+      'trunc_one': 0.001,
+      'trunc_two': 0.002,
+      'compress':  4e-3,
     }
     config2 = {
       'ansatz':  'QUCC',

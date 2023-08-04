@@ -13,8 +13,7 @@ def run_ssexp(mol:MolecularData, ham:Ham, config:Config) -> Tuple[QVM, float, Pa
 
 
 def ssexp_solver(mol:MolecularData, config:Config) -> float:
-  ansatz: str = config['ansatz']
-  ham = get_ham(mol, ansatz.endswith('QP'))
+  ham = get_ham(mol, config)
 
   # Ground state E0: |ψ(λ0)>
   gs_sim, gs_ene, params = run_gs(mol, ham, config)

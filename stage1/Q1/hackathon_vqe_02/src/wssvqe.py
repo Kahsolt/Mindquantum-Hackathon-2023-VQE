@@ -44,8 +44,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
 
 
 def wssvqe_solver(mol:MolecularData, config:Config) -> float:
-  ansatz: str = config['ansatz']
-  ham = get_ham(mol, ansatz.endswith('QP'))
+  ham = get_ham(mol, config)
 
   # Find the lowest two energies by min. U|φ0> + w*U|φ1>, sat. <φ0|φ1> = 0
   assert 0.0 < config['w'] < 1.0

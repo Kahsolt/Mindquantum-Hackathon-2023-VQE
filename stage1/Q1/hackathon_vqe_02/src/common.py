@@ -6,7 +6,6 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Callable, Any, Union, List, Tuple, Dict
-from traceback import print_exc
 
 import numpy as np
 from numpy import ndarray
@@ -45,19 +44,35 @@ Config = Dict[str, Any]
 Params = ndarray
 
 
-def get_ham(mol:MolecularData, is_fermi:bool=False) -> Ham:
-  if is_fermi:
-    ham_of = mol.get_molecular_hamiltonian()
-    inter_ops = InteractionOperator(*ham_of.n_body_tensors.values())
-    ham_hiq = FermionOperator(inter_ops)
+def approx_terms(tensor:ndarray, n_prec:int=-1, eps:float=0.0) -> ndarray:
+  if n_prec > 0:
+    tensor = np.round(tensor, decimals=n_prec)
+  if eps > 0.0:
+    tensor *= (np.abs(tensor) >= eps)
+  return tensor
+
+
+def get_ham(mol:MolecularData, config:Config) -> Ham:
+  ham_of = mol.get_molecular_hamiltonian()
+  # shapes: [], [nq, nq], [nq, nq, nq, nq]
+  constant, one_body_tensor, two_body_tensor = ham_of.n_body_tensors.values()
+  # NOTE: too much terms
+  n_terms = 1 + (one_body_tensor != 0.0).sum() + (two_body_tensor != 0.0).sum()
+  one_body_tensor = approx_terms(one_body_tensor, config.get('round_one', -1), config.get('trunc_one', 0.0))
+  two_body_tensor = approx_terms(two_body_tensor, config.get('round_two', -1), config.get('trunc_two', 0.0))
+  inter_ops = InteractionOperator(constant, one_body_tensor, two_body_tensor)
+  ham_hiq = FermionOperator(inter_ops)
+  if 'compress' in config:
+    ham_hiq.compress(config.get('compress', 1e-8))
+  n_terms_approx = len(ham_hiq)
+  print(f'n_terms: {n_terms} => {n_terms_approx}')
+
+  if config['ansatz'].endswith('QP'):
     ham_fo = normal_ordered(ham_hiq)
     ham_op = ham_fo.real
     ham = ESConserveHam(ham_op)   # ham of a FermionOperator
   else:
-    ham_of = mol.get_molecular_hamiltonian()
-    inter_ops = InteractionOperator(*ham_of.n_body_tensors.values())
-    ham_hiq = FermionOperator(inter_ops)
-    ham_qo = Transform(ham_hiq).jordan_wigner()   # fermi => pauli
+    ham_qo: QubitOperator = Transform(ham_hiq).jordan_wigner()   # fermi => pauli
     ham_op = ham_qo.real          # FIXME: why discard imag part?
     ham = Hamiltonian(ham_op)     # ham of a QubitOperator
 

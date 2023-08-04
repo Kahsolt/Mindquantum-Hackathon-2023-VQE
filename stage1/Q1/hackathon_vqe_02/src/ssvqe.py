@@ -70,8 +70,7 @@ def run_V(mol:MolecularData, ham:Ham, config:Config, sim:QVM) -> float:
 
 
 def ssvqe_solver(mol:MolecularData, config1:Config, config2:Config) -> float:
-  ansatz1: str = config1['ansatz']
-  ham = get_ham(mol, ansatz1.endswith('QP'))
+  ham = get_ham(mol, config1)
 
   # Shrink the subspace, expand ansatz state: U|φ>
   sim = run_U(mol, ham, config1)

@@ -147,8 +147,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
 
 
 def opocvqe_solver(mol:MolecularData, config:Config) -> float:
-  ansatz: str = config['ansatz']
-  ham = get_ham(mol, ansatz.endswith('QP'))
+  ham = get_ham(mol, config)
 
   # Find the lowest two energies by min. U|φ0> + w*U|φ1> + β*<φ0|U'U|φ1>
   if 'optims' in config:

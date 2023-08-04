@@ -24,7 +24,6 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[QVM, float, Params]:
         print('E0 energy:', ene)
         return sim, ene, params
       except:
-        print_exc()
         print('>> cache file error')
         fp.unlink()
   
@@ -53,8 +52,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[QVM, float, Params]:
 
 
 def vqe_solver(mol:MolecularData, config:Config) -> float:
-  ansatz: str = config['ansatz']
-  ham = get_ham(mol, ansatz.endswith('QP'))
+  ham = get_ham(mol, config)
 
   # Ground state E0: |ψ(λ0)>
   _, gs_ene, _ = run(mol, ham, config)
@@ -65,8 +63,7 @@ def vqe_solver(mol:MolecularData, config:Config) -> float:
 def fsm_solver(mol:MolecularData, config1:Config, config2:Config) -> float:
   ''' NOTE: 已知 特征值λ(能量) 求 特征向量(态) '''
 
-  ansatz: str = config1['ansatz']
-  ham = get_ham(mol, ansatz.endswith('QP'))
+  ham = get_ham(mol, config1)
 
   # Ground state E0: |ψ(λ0)>
   gs_ene = vqe_solver(mol, config1)
