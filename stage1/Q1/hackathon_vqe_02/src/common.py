@@ -3,6 +3,7 @@
 # Create Time: 2023/07/19 
 
 import os
+import random
 import tempfile
 from pathlib import Path
 from typing import Callable, Any, Union, List, Tuple, Dict
@@ -11,8 +12,9 @@ import numpy as np
 from numpy import ndarray
 from scipy.optimize import minimize
 import mindspore as ms
-ms.context.set_context(mode=ms.context.PYNATIVE_MODE, device_target="CPU")
+ms.set_context(mode=ms.PYNATIVE_MODE, device_target='CPU')
 import mindspore.nn as nn
+import mindquantum as mq
 from mindquantum.framework import MQAnsatzOnlyLayer
 from openfermion.chem import MolecularData
 from mindquantum.core.gates import H, X, Y, Z, RX, RY, RZ
@@ -33,7 +35,7 @@ from qupack.vqe import ESConservation, ESConserveHam, ExpmPQRSFermionGate
 ESConservation._check_qubits_max = lambda *args, **kwargs: None   # monkey-patching avoid FileNotFoundError
 
 from src.hijack.QubitUCCAnsatz_hijack import QubitUCCAnsatz_hijack
-from src.hijack.uccsd_singlet_generator_hijack import uccsd_singlet_generator_hijack
+from src.hijack.uccsd_singlet_generator_hijack import uccsd_singlet_generator_hijack, uccsd_singlet_get_packed_amplitudes_hijack
 
 CACHE_PATH = Path(tempfile.gettempdir())
 
@@ -45,6 +47,18 @@ Ham = Union[Hamiltonian, ESConserveHam]
 QVM = Union[Simulator, ESConservation]
 Config = Dict[str, Any]
 Params = ndarray
+
+
+def seed_everything(seed:Union[int, str]=None):
+  if seed in [None, '']:
+    seed = random.randint(0, 2*31-1)
+  elif isinstance(seed, str):
+    seed = int(seed)
+  print(f'>> seed: {seed}')
+  
+  random.seed(seed)
+  np.random.seed(seed)
+  ms.set_seed(seed)
 
 
 def approx_terms(tensor:ndarray, n_prec:int=-1, eps:float=0.0) -> ndarray:
@@ -120,7 +134,8 @@ def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) 
       # H2O: 2000 terms
       ucc_qubit_ops = Transform(ucc_fermion_ops).jordan_wigner()
       ansatz_circuit = TimeEvolution(ucc_qubit_ops.imag).circuit    # ucc_qubit_ops 中已经包含了复数因子 i 
-      init_amp_ccsd = uccsd_singlet_get_packed_amplitudes(mol.ccsd_single_amps, mol.ccsd_double_amps, mol.n_qubits, mol.n_electrons)
+      # 65 values
+      init_amp_ccsd: Dict[str, float] = uccsd_singlet_get_packed_amplitudes(mol.ccsd_single_amps, mol.ccsd_double_amps, mol.n_qubits, mol.n_electrons)
       init_amp = np.asarray([init_amp_ccsd[i] for i in ansatz_circuit.params_name])
   elif ansatz == 'UCCSD-QP':
     # H2O: 170 terms
@@ -131,6 +146,10 @@ def get_ansatz(mol:MolecularData, ansatz:str, config:Config, no_hfw:bool=False) 
   elif ansatz == 'UCCSD-QP-hijack':
     # H2O: 170*k gates, 65*k parameters
     circ = uccsd_singlet_generator_hijack(mol.n_qubits, mol.n_electrons, anti_hermitian=False, n_trotter=config['trotter'])
+    init_amp_ccsd = uccsd_singlet_get_packed_amplitudes_hijack(mol.ccsd_single_amps, mol.ccsd_double_amps, mol.n_qubits, mol.n_electrons, n_trotter=config['trotter'])
+    init_amp = np.asarray([init_amp_ccsd[i] for i in circ.params_name])
+    # NOTE: this is important to eliminate param symmetricity
+    init_amp += init_randu(init_amp.shape, mul=1e-3)
   elif ansatz == 'HEA':
     rot_gates = [globals()[g] for g in config['rot_gates']]
     entgl_gate = globals()[config['entgl_gate']]

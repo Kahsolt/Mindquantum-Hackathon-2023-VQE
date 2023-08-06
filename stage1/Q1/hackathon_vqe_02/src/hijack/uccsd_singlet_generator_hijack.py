@@ -1,5 +1,6 @@
 from itertools import product, combinations
-from typing import List
+from collections import defaultdict
+from typing import List, Dict
 
 from mindquantum.core.circuit import Circuit
 from mindquantum.core.operators import FermionOperator
@@ -8,6 +9,63 @@ from qupack.vqe.gates import ExpmPQRSFermionGate
 
 from mindquantum.third_party.unitary_cc import *
 assert uccsd_singlet_generator
+
+
+def uccsd_singlet_get_packed_amplitudes_hijack(single_amplitudes, double_amplitudes, n_qubits, n_electrons, n_trotter=1) -> ParameterResolver:
+    single_amplitudes *= single_amplitudes > 1e-8
+    double_amplitudes *= double_amplitudes > 1e-8
+
+    n_spatial_orbitals = n_qubits // 2
+    n_occupied = int(numpy.ceil(n_electrons / 2))
+    n_virtual = n_spatial_orbitals - n_occupied
+
+    singles = ParameterResolver()
+    doubles_1 = ParameterResolver()
+    doubles_2 = ParameterResolver()
+
+    # pylint: disable=invalid-name
+    # Get singles and doubles amplitudes associated with one spatial occupied-virtual pair
+    for p, q in product(range(n_virtual), range(n_occupied)):
+        # Get indices of spatial orbitals
+        virtual_spatial = n_occupied + p
+        occupied_spatial = q
+        # Get indices of spin orbitals
+        virtual_up    = up_index(virtual_spatial)
+        virtual_down  = down_index(virtual_spatial)
+        occupied_up   = up_index(occupied_spatial)
+        occupied_down = down_index(occupied_spatial)
+
+        # Get singles amplitude
+        # Just get up amplitude, since down should be the same'
+        singles[f's_{len(singles)}'] = single_amplitudes[virtual_up, occupied_up]
+
+        # Get doubles amplitude
+        doubles_1[f'd1_{len(doubles_1)}'] = double_amplitudes[virtual_up, occupied_up, virtual_down, occupied_down]
+
+    # Get doubles amplitudes associated with two spatial occupied-virtual pairs
+    for (p, q), (r, s) in combinations(product(range(n_virtual), range(n_occupied)), 2):
+        # Get indices of spatial orbitals
+        virtual_spatial_1  = n_occupied + p
+        occupied_spatial_1 = q
+        virtual_spatial_2  = n_occupied + r
+        occupied_spatial_2 = s
+
+        # Get indices of spin orbitals
+        # Just get up amplitudes, since down and cross terms should be the same
+        virtual_1_up  = up_index(virtual_spatial_1)
+        occupied_1_up = up_index(occupied_spatial_1)
+        virtual_2_up  = up_index(virtual_spatial_2)
+        occupied_2_up = up_index(occupied_spatial_2)
+
+        # Get amplitude
+        doubles_2[f'd2_{len(doubles_2)}'] = double_amplitudes[virtual_1_up, occupied_1_up, virtual_2_up, occupied_2_up]
+
+    ret = ParameterResolver()
+    pr: ParameterResolver = singles + doubles_1 + doubles_2
+    for k, v in pr.items():
+        for t in range(n_trotter):
+            ret[f't_{t}_{k}'] = v
+    return ret
 
 
 def uccsd_singlet_generator_hijack(n_qubits, n_electrons, anti_hermitian=True, n_trotter=1) -> Circuit:

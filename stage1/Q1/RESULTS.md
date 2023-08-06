@@ -28,20 +28,12 @@ iters  = 1000
 runner = ocvqe + qupack + hijack
 
 config1 = {
-  # circ
   'ansatz':  'UCCSD-QP-hijack',
   'trotter': 2,
-  # optim
   'optim':   'BFGS',
   'tol':     1e-4,
   'maxiter': 500,
   'dump':    False,
-  # ham
-  #'round_one': 6,
-  #'round_two': 6,
-  #'trunc_one': 0.001,
-  #'trunc_two': 0.002,
-  #'compress':  1e-5,
 }
 config2 = {
   'ansatz':  f'UCCSD-QP-hijack',

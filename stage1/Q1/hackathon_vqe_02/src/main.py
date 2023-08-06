@@ -12,6 +12,7 @@ from .ocvqe import ocvqe_solver
 from .opocvqe import opocvqe_solver
 from .ssvqe import ssvqe_solver
 from .wssvqe import wssvqe_solver
+from .common import seed_everything
 
 ANSATZS = [
   # mindquantum
@@ -83,24 +84,16 @@ def run_ocvqe(mol:MolecularData) -> float:
     }
   elif lib == 'qp':
     config1 = {
-      # circ
       'ansatz':  f'UCCSD-QP{sfx}',
-      'trotter': 2,
-      # optim
+      'trotter': 1,
       'optim':   'BFGS',
       'tol':     1e-4,
-      'maxiter': 500,
+      'maxiter': 100,
       'dump':    False,
-      # ham
-      #'round_one': 6,
-      #'round_two': 6,
-      #'trunc_one': 0.001,
-      #'trunc_two': 0.002,
-      #'compress':  1e-5,
     }
     config2 = {
       'ansatz':  f'UCCSD-QP{sfx}',
-      'trotter': 4,
+      'trotter': 3,
       'optim':   'BFGS',
       'tol':     1e-4,
       'beta':    4,
@@ -186,6 +179,8 @@ def run_wssvqe(mol:MolecularData) -> float:
 
 
 def excited_state_solver(mol:MolecularData) -> float:
+  seed_everything(os.environ.get('SEED', None))
+
   #algo = 'fsm'
   algo = 'ocvqe'
   #algo = 'opocvqe'
