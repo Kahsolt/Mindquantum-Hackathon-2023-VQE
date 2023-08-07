@@ -34,7 +34,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[QVM, float, Params]:
   def func(x:ndarray, grad_ops:Callable, hparam:Config) -> Tuple[float, ndarray]:
     f, g = grad_ops(x)
     f, g = [np.squeeze(x) for x in [f, g]]
-    if PEEK: print('gs:', f.real)
+    if DEBUG: print('gs:', f.real)
     return np.real(f), np.real(g)
   
   # Get optimized results

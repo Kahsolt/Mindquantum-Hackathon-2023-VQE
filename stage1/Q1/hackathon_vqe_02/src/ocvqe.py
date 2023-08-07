@@ -37,7 +37,7 @@ def run_es(mol:MolecularData, ham:Ham, gs_sim:QVM, config:Config, init_params:nd
     punish_f = beta * np.abs(f1) ** 2
     # grad of reg term: `+ beta * (g1' * f1 + g1 * f1')`
     punish_g = beta * (np.conj(g1) * f1 + g1 * np.conj(f1))
-    if PEEK: print('es:', f0.real, 'ip:', f1.real)
+    if DEBUG: print('es:', f0.real, 'ip:', f1.real)
     return np.real(f0 + punish_f), np.real(g0 + punish_g)
   
   # Get Optimized result: min. E1 = <ψ(λ1)|H|ψ(λ1)> + |<ψ(λ1)|ψ(λ0)>|^2

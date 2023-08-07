@@ -104,7 +104,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
     punish_f = beta * np.abs(f_) ** 2
     punish_g = beta * (np.conj(g_) * f_ + g_ * np.conj(f_))
 
-    if PEEK: print('gs:', f0.real, 'es:', f1.real, 'reg:', punish_f)
+    if DEBUG: print('gs:', f0.real, 'es:', f1.real, 'reg:', punish_f)
     return np.real(f_sum + punish_f), np.real(g_cat + punish_g)
 
   # Get optimized result

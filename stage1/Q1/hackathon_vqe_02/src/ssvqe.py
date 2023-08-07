@@ -27,7 +27,7 @@ def run_U(mol:MolecularData, ham:Ham, config:Config) -> QVM:
     f0, g0 = q0_grad_ops(x)
     f1, g1 = q1_grad_ops(x)
     f0, f1, g0, g1 = [np.squeeze(x) for x in [f0, f1, g0, g1]]
-    if PEEK: print('f0:', f0.real, 'f1:', f1.real)
+    if DEBUG: print('f0:', f0.real, 'f1:', f1.real)
     return np.real(f0 + f1), np.real(g0 + g1)
   
   # Get optimized result
@@ -55,7 +55,7 @@ def run_V(mol:MolecularData, ham:Ham, config:Config, sim:QVM) -> float:
   def func(x:ndarray, grad_ops:Callable, hparam:Config) -> Tuple[float, ndarray]:
     f, g = grad_ops(x)
     f, g = [np.squeeze(x) for x in [f, g]]
-    if PEEK: print('f:', f.real)
+    if DEBUG: print('f:', f.real)
     return -np.real(f), -np.real(g)
   
   # Get Optimized result: min. E0 = <ψ(λ0)|H|ψ(λ0)>

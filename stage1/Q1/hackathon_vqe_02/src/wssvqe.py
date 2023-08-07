@@ -27,7 +27,7 @@ def run(mol:MolecularData, ham:Ham, config:Config) -> Tuple[float, float]:
     f0, g0 = q0_grad_ops(x)
     f1, g1 = q1_grad_ops(x)
     f0, f1, g0, g1 = [np.squeeze(x) for x in [f0, f1, g0, g1]]
-    if PEEK: print('gs:', f0.real, 'es:', f1.real)
+    if DEBUG: print('gs:', f0.real, 'es:', f1.real)
     return np.real(f0 + w * f1), np.real(g0 + w * g1)
   
   # Get optimized result

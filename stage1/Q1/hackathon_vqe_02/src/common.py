@@ -40,6 +40,7 @@ from src.hijack.uccsd_singlet_generator_hijack import uccsd_singlet_generator_hi
 CACHE_PATH = Path(tempfile.gettempdir())
 
 PEEK         = os.environ.get('PEEK',         False)
+DEBUG        = os.environ.get('DEBUG',        False)
 DEBUG_HAM    = os.environ.get('DEBUG_HAM',    False)
 DEBUG_ANSATZ = os.environ.get('DEBUG_ANSATZ', False)
 
