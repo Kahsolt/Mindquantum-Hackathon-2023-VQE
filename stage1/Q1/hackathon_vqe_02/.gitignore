@@ -1,0 +1,4 @@
+# out
+results/
+*.json
+*.png
