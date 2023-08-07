@@ -52,7 +52,7 @@ Params = ndarray
 
 def seed_everything(seed:Union[int, str]=None):
   if seed in [None, '']:
-    seed = random.randint(0, 2*31-1)
+    seed = random.randint(0, 2**31-1)
   elif isinstance(seed, str):
     seed = int(seed)
   print(f'>> seed: {seed}')
