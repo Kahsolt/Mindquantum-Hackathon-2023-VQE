@@ -1,5 +1,6 @@
 Pillow==9.5.0
 openfermion
+scikit-opt
 
 # *pyscf stuff is not availbal on Windows
 pyscf
