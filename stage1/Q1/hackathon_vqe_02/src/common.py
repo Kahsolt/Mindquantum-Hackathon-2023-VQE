@@ -212,7 +212,10 @@ def run_expectaion(sim:QVM, ham:Ham, circ:Circuit, params:ndarray) -> float:
   return E.real
 
 
+scipy_callback = None
+
 def optim_scipy(func:Callable, init_x:ndarray, grad_ops:Tuple[Callable, ...], config:Config) -> ndarray:
+  global scipy_callback
   optim_plans: List[Config] = config.get('optims', [config])
   for i, cfg in enumerate(optim_plans):
     optim = cfg.get('optim', 'BFGS')
@@ -228,6 +231,7 @@ def optim_scipy(func:Callable, init_x:ndarray, grad_ops:Tuple[Callable, ...], co
         'maxiter': cfg.get('maxiter', 1000), 
         'disp': cfg.get('debug', False),
       },
+      callback=scipy_callback,
     )
     init_x = res.x
   return np.asarray(res.x, dtype=np.float32)
